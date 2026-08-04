@@ -30,6 +30,9 @@ def create_profile(
         favorite_color=profile.favorite_color,
         favorite_colors=profile.favorite_colors,
         style_tags=profile.style_tags,
+        fit_tags=profile.fit_tags,
+        avoid_colors=profile.avoid_colors,
+        occasion_preferences=profile.occasion_preferences,
         body_type=profile.body_type,
         season=profile.season,
     )

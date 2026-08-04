@@ -19,7 +19,9 @@ SEASONS = ["春季", "夏季", "秋季", "冬季", "春秋", "四季"]
 OCCASIONS = ["通勤", "约会", "运动", "旅行", "日常"]
 OUTFIT_SLOTS = ["内搭", "上衣", "裤子", "外套", "鞋子", "配饰"]
 
-NEUTRAL_COLORS = ["黑色", "白色", "灰色", "black", "white", "gray", "grey"]
+NEUTRAL_COLOR_GROUPS = ["黑色", "白色", "灰色"]
+
+MAX_OUTFIT_CANDIDATES = 5
 
 SCORE_RULES = {
     "style": 40,
@@ -27,9 +29,36 @@ SCORE_RULES = {
     "color": 30,
     "fit": 20,
     "occasion": 30,
+    "avoid_color": 30,
 }
 
 OUTFIT_BONUS = {
     "style_unified": 20,
     "neutral_colors": 20,
 }
+
+COMPATIBILITY_PENALTIES = {
+    "style_mismatch": 10,
+    "color_clash": 20,
+    "season_clash": 30,
+    "incomplete_outfit": 20,
+}
+
+MIN_OUTFIT_ITEMS = 2
+
+COLOR_CLASH_PAIRS = [("红色", "绿色")]
+
+SEASON_CLASH_RULES = [
+    {
+        "user_season": "夏季",
+        "category": "外套",
+        "item_seasons": ["冬季", "秋冬"],
+        "penalty": 30,
+    },
+    {
+        "user_season": "冬季",
+        "category": "裤子",
+        "item_seasons": ["夏季"],
+        "penalty": 30,
+    },
+]

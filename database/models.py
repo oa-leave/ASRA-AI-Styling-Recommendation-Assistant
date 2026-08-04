@@ -42,6 +42,7 @@ class Wardrobe(Base):
     color_tags = Column(JSON, default=list)
     style_tags = Column(JSON, default=list)
     fit_tags = Column(JSON, default=list)
+    occasion_tags = Column(JSON, default=list)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     user = relationship("User", back_populates="wardrobes")
@@ -62,6 +63,9 @@ class UserProfile(Base):
     favorite_color = Column(String(50))
     favorite_colors = Column(JSON, default=list)
     style_tags = Column(JSON, default=list)
+    fit_tags = Column(JSON, default=list)
+    avoid_colors = Column(JSON, default=list)
+    occasion_preferences = Column(JSON, default=list)
     body_type = Column(String(50))
     season = Column(String(50))
 

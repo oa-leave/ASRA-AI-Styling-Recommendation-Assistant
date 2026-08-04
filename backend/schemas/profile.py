@@ -10,6 +10,9 @@ class UserProfileCreate(BaseModel):
     season: str
     favorite_colors: List[str] = []
     style_tags: List[str] = []
+    fit_tags: List[str] = []
+    avoid_colors: List[str] = []
+    occasion_preferences: List[str] = []
 
 
 class UserProfileResponse(BaseModel):
@@ -19,6 +22,9 @@ class UserProfileResponse(BaseModel):
     favorite_color: str
     favorite_colors: List[str]
     style_tags: List[str]
+    fit_tags: List[str]
+    avoid_colors: List[str]
+    occasion_preferences: List[str]
     body_type: str
     season: str
 

@@ -61,6 +61,7 @@ class WardrobeCreate(BaseModel):
     # "基础款"
     # ]
     fit_tags: List[str] = []
+    occasion_tags: List[str] = []
 
 # ==================================
 # 返回衣服数据
@@ -75,4 +76,5 @@ class WardrobeResponse(BaseModel):
     color_tags:List[str]
     style_tags:List[str]
     fit_tags:List[str]
+    occasion_tags:List[str]
     model_config = ConfigDict(from_attributes=True)

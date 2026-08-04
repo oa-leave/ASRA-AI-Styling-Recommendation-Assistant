@@ -28,6 +28,7 @@ def add_clothes(
         color_tags=clothes.color_tags,
         style_tags=clothes.style_tags,
         fit_tags=clothes.fit_tags,
+        occasion_tags=clothes.occasion_tags,
         user_id=current_user.id,
     )
     database.add(new_clothes)
@@ -106,6 +107,7 @@ def update_clothes(
     old_clothes.color_tags = clothes.color_tags
     old_clothes.style_tags = clothes.style_tags
     old_clothes.fit_tags = clothes.fit_tags
+    old_clothes.occasion_tags = clothes.occasion_tags
     database.commit()
     database.refresh(old_clothes)
     record_event(

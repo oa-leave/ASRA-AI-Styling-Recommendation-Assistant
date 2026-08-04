@@ -30,7 +30,7 @@ def recommend(
         .all()
     )
     recommendations = calculate_clothes_score(clothes, profile)
-    outfit_result = build_best_outfit(recommendations)
+    outfit_result = build_best_outfit(recommendations, profile)
 
     record_event(
         db,

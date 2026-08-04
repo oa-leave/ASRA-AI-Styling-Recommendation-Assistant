@@ -56,6 +56,7 @@ def test_register_login_wardrobe_profile_and_feedback():
             "color_tags": ["白色", "基础色"],
             "style_tags": ["休闲"],
             "fit_tags": ["宽松"],
+            "occasion_tags": ["通勤"],
         },
     )
     assert wardrobe_response.status_code == 201
@@ -64,6 +65,7 @@ def test_register_login_wardrobe_profile_and_feedback():
     assert list_response.status_code == 200
     assert len(list_response.json()) == 1
     assert list_response.json()[0]["color_tags"] == ["白色", "基础色"]
+    assert list_response.json()[0]["occasion_tags"] == ["通勤"]
 
     profile_response = client.post(
         "/profile/create",
@@ -75,11 +77,17 @@ def test_register_login_wardrobe_profile_and_feedback():
             "season": "夏季",
             "favorite_colors": ["白色", "基础色"],
             "style_tags": ["休闲", "极简"],
+            "fit_tags": ["宽松"],
+            "avoid_colors": ["红色"],
+            "occasion_preferences": ["通勤"],
         },
     )
     assert profile_response.status_code == 201
     assert profile_response.json()["favorite_colors"] == ["白色", "基础色"]
     assert profile_response.json()["style_tags"] == ["休闲", "极简"]
+    assert profile_response.json()["fit_tags"] == ["宽松"]
+    assert profile_response.json()["avoid_colors"] == ["红色"]
+    assert profile_response.json()["occasion_preferences"] == ["通勤"]
 
     feedback_response = client.post(
         "/feedback/",
