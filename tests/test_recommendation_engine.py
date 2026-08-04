@@ -23,6 +23,7 @@ def test_normalize_colors():
     assert normalize_colors("黑白") == ["黑色", "白色"]
     assert normalize_colors(["白色", "黑色"]) == ["白色", "黑色"]
     assert normalize_colors(["白", "black"]) == ["白色", "黑色"]
+    assert normalize_colors(["黑白"]) == ["黑色", "白色"]
     assert normalize_colors(None) == []
 
 
@@ -162,8 +163,13 @@ def test_avoid_colors_penalty():
         fit_tags=[],
     )
 
-    scored = calculate_clothes_score([item], profile)
+    scored, filtered = calculate_clothes_score(
+        [item],
+        profile,
+        collect_filtered=True,
+    )
     assert scored == []
+    assert filtered == ["用户不喜欢该颜色"]
 
 
 def test_occasion_tags_add_score():
@@ -263,7 +269,7 @@ def test_core_outfit_bonus():
     }
 
     score, reasons = calculate_outfit_score(outfit)
-    assert "核心穿搭完整" in reasons
+    assert any("核心穿搭完整" in reason for reason in reasons)
 
 
 def test_single_item_outfit_gets_incomplete_penalty():

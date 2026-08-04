@@ -29,7 +29,11 @@ def recommend(
         .filter(Wardrobe.user_id == current_user.id)
         .all()
     )
-    recommendations = calculate_clothes_score(clothes, profile)
+    recommendations, filtered_reasons = calculate_clothes_score(
+        clothes,
+        profile,
+        collect_filtered=True,
+    )
     outfit_result = build_best_outfit(recommendations, profile)
 
     record_event(
@@ -52,4 +56,5 @@ def recommend(
         "recommendation": outfit_result["outfit"],
         "outfit_score": outfit_result["score"],
         "outfit_reason": outfit_result["reason"],
+        "filtered_reasons": filtered_reasons,
     }

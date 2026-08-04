@@ -63,10 +63,12 @@ def _color_group_name(color):
 def normalize_color_tags(tags):
     tags = normalize_tags(tags)
     result = []
+    seen = set()
     for tag in tags:
-        group = _color_group_name(tag)
-        if group:
-            result.append(group)
+        for color in normalize_colors(tag):
+            if color not in seen:
+                seen.add(color)
+                result.append(color)
     return result
 
 
@@ -82,7 +84,9 @@ def tag_match(item_tags, user_tags):
     return len(set(item_tags) & set(user_tags))
 
 
-def calculate_clothes_score(clothes, profile):
+def calculate_clothes_score(clothes, profile, collect_filtered=False):
+    filtered_reasons = []
+
     if profile:
         user_style = getattr(profile, "style", None)
         user_season = getattr(profile, "season", None)
@@ -136,6 +140,7 @@ def calculate_clothes_score(clothes, profile):
 
         item_color_group = _color_group_name(item.color)
         if item_color_group in avoid_colors:
+            filtered_reasons.append("用户不喜欢该颜色")
             continue
 
         occasion_score = tag_match(item_occasion_tags, user_occasions)
@@ -165,6 +170,8 @@ def calculate_clothes_score(clothes, profile):
             "score": score,
             "reason": reasons,
         })
+    if collect_filtered:
+        return result, filtered_reasons
     return result
 
 
@@ -190,9 +197,11 @@ def calculate_outfit_score(outfit, profile=None):
         reasons.append("整体风格不统一")
 
     outfit_keys = set(outfit.keys())
-    if any(set(pair).issubset(outfit_keys) for pair in REQUIRED_OUTFIT_SLOTS):
-        score += OUTFIT_BONUS["core_outfit"]
-        reasons.append("核心穿搭完整")
+    for rule in REQUIRED_OUTFIT_SLOTS:
+        if set(rule["slots"]).issubset(outfit_keys):
+            score += rule["bonus"]
+            reasons.append(f"核心穿搭完整（{rule['name']}）")
+            break
 
     neutral_count = sum(
         1 for color in colors if _color_group_name(color) in NEUTRAL_COLOR_GROUPS
