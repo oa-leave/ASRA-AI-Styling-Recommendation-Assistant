@@ -28,6 +28,8 @@ def create_profile(
         user_id=current_user.id,
         style=profile.style,
         favorite_color=profile.favorite_color,
+        favorite_colors=profile.favorite_colors,
+        style_tags=profile.style_tags,
         body_type=profile.body_type,
         season=profile.season,
     )

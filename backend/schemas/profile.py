@@ -1,3 +1,5 @@
+from typing import List
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -6,6 +8,8 @@ class UserProfileCreate(BaseModel):
     favorite_color: str
     body_type: str
     season: str
+    favorite_colors: List[str] = []
+    style_tags: List[str] = []
 
 
 class UserProfileResponse(BaseModel):
@@ -13,6 +17,8 @@ class UserProfileResponse(BaseModel):
     user_id: int
     style: str
     favorite_color: str
+    favorite_colors: List[str]
+    style_tags: List[str]
     body_type: str
     season: str
 

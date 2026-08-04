@@ -21,7 +21,7 @@ def test_home():
     assert response.json()["status"] == "success"
 
 
-def test_register_login_and_wardrobe():
+def test_register_login_wardrobe_profile_and_feedback():
     payload = {
         "email": "test@example.com",
         "username": "test_user",
@@ -64,3 +64,35 @@ def test_register_login_and_wardrobe():
     assert list_response.status_code == 200
     assert len(list_response.json()) == 1
     assert list_response.json()[0]["color_tags"] == ["白色", "基础色"]
+
+    profile_response = client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "白色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["白色", "基础色"],
+            "style_tags": ["休闲", "极简"],
+        },
+    )
+    assert profile_response.status_code == 201
+    assert profile_response.json()["favorite_colors"] == ["白色", "基础色"]
+    assert profile_response.json()["style_tags"] == ["休闲", "极简"]
+
+    feedback_response = client.post(
+        "/feedback/",
+        headers=headers,
+        json={
+            "feedback_type": "like",
+            "outfit_score": 350,
+            "outfit_snapshot": {"上衣": "白色T恤"},
+            "reason": ["整体风格统一"],
+        },
+    )
+    assert feedback_response.status_code == 201
+
+    feedback_list = client.get("/feedback/", headers=headers)
+    assert feedback_list.status_code == 200
+    assert len(feedback_list.json()) == 1

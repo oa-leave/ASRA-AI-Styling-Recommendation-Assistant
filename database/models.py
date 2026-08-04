@@ -23,6 +23,11 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    feedbacks = relationship(
+        "RecommendationFeedback",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Wardrobe(Base):
@@ -71,3 +76,17 @@ class EventLog(Base):
     event_type = Column(String(100), nullable=False, index=True)
     payload = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class RecommendationFeedback(Base):
+    __tablename__ = "recommendation_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    feedback_type = Column(String(20), nullable=False)
+    outfit_score = Column(Integer, default=0)
+    outfit_snapshot = Column(JSON, default=dict)
+    reason = Column(JSON, default=list)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="feedbacks")
