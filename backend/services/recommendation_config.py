@@ -35,7 +35,13 @@ SCORE_RULES = {
 OUTFIT_BONUS = {
     "style_unified": 20,
     "neutral_colors": 20,
+    "core_outfit": 20,
 }
+
+REQUIRED_OUTFIT_SLOTS = [
+    ["上衣", "裤子"],
+    ["上衣", "裙子"],
+]
 
 COMPATIBILITY_PENALTIES = {
     "style_mismatch": 10,

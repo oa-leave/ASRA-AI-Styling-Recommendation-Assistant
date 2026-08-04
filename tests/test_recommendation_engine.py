@@ -6,6 +6,7 @@ from backend.services.recommendation_engine import (
     calculate_outfit_score,
     color_match,
     normalize_colors,
+    normalize_tags,
     tag_match,
     tag_overlap,
 )
@@ -23,6 +24,12 @@ def test_normalize_colors():
     assert normalize_colors(["白色", "黑色"]) == ["白色", "黑色"]
     assert normalize_colors(["白", "black"]) == ["白色", "黑色"]
     assert normalize_colors(None) == []
+
+
+def test_normalize_tags():
+    assert normalize_tags("日系, 极简") == ["日系", "极简"]
+    assert normalize_tags(["日系", "极简"]) == ["日系", "极简"]
+    assert normalize_tags(None) == []
 
 
 def test_tag_overlap():
@@ -168,7 +175,7 @@ def test_occasion_tags_add_score():
         style_tags=["休闲"],
         fit_tags=[],
         avoid_colors=[],
-        occasion_preferences=["通勤"],
+        occasion_preferences="通勤",
     )
     item = SimpleNamespace(
         id=1,
@@ -235,6 +242,28 @@ def test_build_best_outfit_searches_combinations():
     result = build_best_outfit(clothes)
     assert result["outfit"]["上衣"]["name"] == "黑色T恤"
     assert result["outfit"]["裤子"]["name"] == "黑色休闲裤"
+
+
+def test_core_outfit_bonus():
+    outfit = {
+        "上衣": {
+            "score": 100,
+            "style": "休闲",
+            "color": "白色",
+            "season": "夏季",
+            "category": "上衣",
+        },
+        "裤子": {
+            "score": 100,
+            "style": "休闲",
+            "color": "黑色",
+            "season": "夏季",
+            "category": "裤子",
+        },
+    }
+
+    score, reasons = calculate_outfit_score(outfit)
+    assert "核心穿搭完整" in reasons
 
 
 def test_single_item_outfit_gets_incomplete_penalty():

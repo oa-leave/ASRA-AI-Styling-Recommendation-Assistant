@@ -9,6 +9,7 @@ from backend.services.recommendation_config import (
     NEUTRAL_COLOR_GROUPS,
     OUTFIT_BONUS,
     OUTFIT_SLOTS,
+    REQUIRED_OUTFIT_SLOTS,
     SCORE_RULES,
     SEASON_CLASH_RULES,
 )
@@ -32,6 +33,16 @@ def normalize_colors(colors):
     return [name for _, name in matches]
 
 
+def normalize_tags(tags):
+    if not tags:
+        return []
+    if isinstance(tags, list):
+        return [str(tag).strip() for tag in tags if str(tag).strip()]
+    if isinstance(tags, str):
+        return [tag.strip() for tag in tags.split(",") if tag.strip()]
+    return []
+
+
 def color_match(clothes_color, favorite_colors):
     if not clothes_color or not favorite_colors:
         return False
@@ -50,9 +61,7 @@ def _color_group_name(color):
 
 
 def normalize_color_tags(tags):
-    if not tags:
-        return []
-
+    tags = normalize_tags(tags)
     result = []
     for tag in tags:
         group = _color_group_name(tag)
@@ -81,10 +90,10 @@ def calculate_clothes_score(clothes, profile):
             getattr(profile, "favorite_colors", None)
             or getattr(profile, "favorite_color", None)
         )
-        user_style_tags = getattr(profile, "style_tags", None) or []
-        user_fit_tags = getattr(profile, "fit_tags", None) or []
+        user_style_tags = normalize_tags(getattr(profile, "style_tags", None))
+        user_fit_tags = normalize_tags(getattr(profile, "fit_tags", None))
         avoid_colors = normalize_colors(getattr(profile, "avoid_colors", None) or [])
-        user_occasions = getattr(profile, "occasion_preferences", None) or []
+        user_occasions = normalize_tags(getattr(profile, "occasion_preferences", None))
     else:
         user_style = None
         user_season = None
@@ -98,12 +107,10 @@ def calculate_clothes_score(clothes, profile):
     for item in clothes:
         score = 0
         reasons = []
-        item_style_tags = getattr(item, "style_tags", None) or []
-        item_color_tags = normalize_color_tags(
-            getattr(item, "color_tags", None) or []
-        )
-        item_fit_tags = getattr(item, "fit_tags", None) or []
-        item_occasion_tags = getattr(item, "occasion_tags", None) or []
+        item_style_tags = normalize_tags(getattr(item, "style_tags", None))
+        item_color_tags = normalize_color_tags(getattr(item, "color_tags", None))
+        item_fit_tags = normalize_tags(getattr(item, "fit_tags", None))
+        item_occasion_tags = normalize_tags(getattr(item, "occasion_tags", None))
 
         if user_style and item.style == user_style:
             score += SCORE_RULES["style"]
@@ -181,6 +188,11 @@ def calculate_outfit_score(outfit, profile=None):
     elif len(outfit) >= 2 and len(set(styles)) > 1:
         score -= COMPATIBILITY_PENALTIES["style_mismatch"]
         reasons.append("整体风格不统一")
+
+    outfit_keys = set(outfit.keys())
+    if any(set(pair).issubset(outfit_keys) for pair in REQUIRED_OUTFIT_SLOTS):
+        score += OUTFIT_BONUS["core_outfit"]
+        reasons.append("核心穿搭完整")
 
     neutral_count = sum(
         1 for color in colors if _color_group_name(color) in NEUTRAL_COLOR_GROUPS
