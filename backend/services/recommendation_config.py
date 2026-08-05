@@ -75,3 +75,12 @@ SEASON_CLASH_RULES = [
         "penalty": 30,
     },
 ]
+
+SEASON_CATEGORY_RULES = {
+    "夏季": {
+        "avoid_categories": ["外套"],
+    },
+    "冬季": {
+        "required_categories": ["外套"],
+    },
+}

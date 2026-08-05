@@ -2,9 +2,11 @@ from types import SimpleNamespace
 
 from backend.services.recommendation_engine import (
     build_best_outfit,
+    build_top_outfits,
     calculate_clothes_score,
     calculate_outfit_score,
     color_match,
+    generate_summary,
     normalize_colors,
     normalize_tags,
     tag_match,
@@ -113,6 +115,98 @@ def test_build_best_outfit_empty():
     assert result["outfit"] == {}
     assert result["score"] == 0
     assert result["reason"] == ["没有找到合适穿搭"]
+
+
+def test_summer_outerwear_is_filtered():
+    profile = SimpleNamespace(season="夏季", style="休闲")
+    clothes = [
+        {
+            "id": 1,
+            "name": "白色T恤",
+            "category": "上衣",
+            "color": "白色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 100,
+            "reason": ["风格"],
+        },
+        {
+            "id": 2,
+            "name": "黑色休闲裤",
+            "category": "裤子",
+            "color": "黑色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+        {
+            "id": 3,
+            "name": "灰色运动鞋",
+            "category": "鞋子",
+            "color": "灰色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+        {
+            "id": 4,
+            "name": "蓝色薄外套",
+            "category": "外套",
+            "color": "蓝色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 80,
+            "reason": ["风格"],
+        },
+    ]
+
+    result = build_best_outfit(clothes, profile)
+    assert "外套" not in result["outfit"]
+
+
+def test_generate_summary():
+    outfit = {
+        "上衣": {"style": "休闲"},
+        "裤子": {"style": "休闲"},
+    }
+    profile = SimpleNamespace(season="夏季", style="休闲")
+    reasons = ["整体风格统一", "颜色搭配协调"]
+
+    summary = generate_summary(outfit, reasons, profile)
+    assert "休闲风格" in summary
+    assert "适合夏季" in summary
+    assert "黑白灰配色降低搭配风险" in summary
+
+
+def test_build_top_outfits_returns_multiple():
+    clothes = [
+        {
+            "id": 1,
+            "name": "白色T恤",
+            "category": "上衣",
+            "color": "白色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 100,
+            "reason": ["风格"],
+        },
+        {
+            "id": 2,
+            "name": "黑色休闲裤",
+            "category": "裤子",
+            "color": "黑色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+    ]
+
+    results = build_top_outfits(clothes, top_n=3)
+    assert len(results) >= 1
+    assert results[0]["score"] >= results[-1]["score"]
 
 
 def test_fit_tags_add_score():

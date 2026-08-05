@@ -10,6 +10,8 @@ os.environ["SECRET_KEY"] = "test-secret-key"
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from database.connection import SessionLocal
+from database.models import UserProfile
 
 
 client = TestClient(app)
@@ -88,6 +90,41 @@ def test_register_login_wardrobe_profile_and_feedback():
     assert profile_response.json()["fit_tags"] == ["宽松"]
     assert profile_response.json()["avoid_colors"] == ["红色"]
     assert profile_response.json()["occasion_preferences"] == ["通勤"]
+
+    recommend_response = client.get("/recommend/", headers=headers)
+    assert recommend_response.status_code == 200
+    recommend_data = recommend_response.json()
+    assert "items" in recommend_data["recommendation"]
+    assert "summary" in recommend_data["recommendation"]
+    assert "recommendations" in recommend_data
+    assert len(recommend_data["recommendations"]) >= 1
+    assert "history_id" in recommend_data
+
+    history_response = client.get("/history/", headers=headers)
+    assert history_response.status_code == 200
+    assert len(history_response.json()) == 1
+
+    db = SessionLocal()
+    profile_row = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == profile_response.json()["user_id"])
+        .first()
+    )
+    profile_row.favorite_colors = None
+    profile_row.style_tags = None
+    profile_row.fit_tags = None
+    profile_row.avoid_colors = None
+    profile_row.occasion_preferences = None
+    db.commit()
+    db.close()
+
+    legacy_profile_response = client.get("/profile/me", headers=headers)
+    assert legacy_profile_response.status_code == 200
+    assert legacy_profile_response.json()["favorite_colors"] == []
+    assert legacy_profile_response.json()["style_tags"] == []
+    assert legacy_profile_response.json()["fit_tags"] == []
+    assert legacy_profile_response.json()["avoid_colors"] == []
+    assert legacy_profile_response.json()["occasion_preferences"] == []
 
     feedback_response = client.post(
         "/feedback/",

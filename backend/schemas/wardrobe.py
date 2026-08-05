@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 # ==================================
 # 添加衣服 Schema
@@ -78,3 +78,14 @@ class WardrobeResponse(BaseModel):
     fit_tags:List[str]
     occasion_tags:List[str]
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator(
+        "color_tags",
+        "style_tags",
+        "fit_tags",
+        "occasion_tags",
+        mode="before",
+    )
+    @classmethod
+    def ensure_list(cls, value):
+        return value or []

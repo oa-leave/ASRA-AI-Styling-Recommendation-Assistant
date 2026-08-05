@@ -11,6 +11,7 @@ from backend.services.recommendation_config import (
     OUTFIT_SLOTS,
     REQUIRED_OUTFIT_SLOTS,
     SCORE_RULES,
+    SEASON_CATEGORY_RULES,
     SEASON_CLASH_RULES,
 )
 
@@ -233,6 +234,84 @@ def calculate_outfit_score(outfit, profile=None):
     return score, reasons
 
 
+def filter_available_slots(categories, profile):
+    season = None
+    if profile:
+        season = getattr(profile, "season", None)
+
+    season_rules = SEASON_CATEGORY_RULES.get(season, {})
+    avoid_categories = season_rules.get("avoid_categories", [])
+
+    slots = []
+    for key in OUTFIT_SLOTS:
+        if not categories[key]:
+            continue
+        if key in avoid_categories:
+            continue
+        slots.append(key)
+    return slots
+
+
+def generate_summary(outfit, reasons, profile=None):
+    summary = []
+    styles = {
+        item.get("style")
+        for item in outfit.values()
+        if item.get("style")
+    }
+
+    if len(styles) == 1:
+        summary.append(f"{next(iter(styles))}风格")
+    if "整体风格统一" in reasons:
+        summary.append("整体风格统一")
+    if "颜色搭配协调" in reasons:
+        summary.append("黑白灰配色降低搭配风险")
+    if profile and getattr(profile, "season", None):
+        summary.append(f"适合{profile.season}")
+    if profile and getattr(profile, "style", None):
+        summary.append(f"用户喜欢{profile.style}风格")
+    if any("核心穿搭完整" in reason for reason in reasons):
+        summary.append("核心穿搭完整")
+
+    return summary
+
+
+def build_top_outfits(clothes, profile=None, top_n=3):
+    categories = {slot: [] for slot in OUTFIT_SLOTS}
+
+    for item in clothes:
+        category = item["category"]
+        if category in categories:
+            categories[category].append(item)
+
+    for key in OUTFIT_SLOTS:
+        if categories[key]:
+            categories[key].sort(key=lambda x: x["score"], reverse=True)
+            categories[key] = categories[key][:MAX_OUTFIT_CANDIDATES]
+
+    available_slots = filter_available_slots(categories, profile)
+    if not available_slots:
+        return [{
+            "outfit": {},
+            "score": 0,
+            "reason": ["没有找到合适穿搭"],
+        }]
+
+    candidates = [categories[key] for key in available_slots]
+    scored_outfits = []
+    for combo in product(*candidates):
+        outfit = dict(zip(available_slots, combo))
+        score, reasons = calculate_outfit_score(outfit, profile)
+        scored_outfits.append({
+            "outfit": outfit,
+            "score": score,
+            "reason": reasons,
+        })
+
+    scored_outfits.sort(key=lambda x: x["score"], reverse=True)
+    return scored_outfits[:top_n]
+
+
 def build_best_outfit(clothes, profile=None):
     categories = {slot: [] for slot in OUTFIT_SLOTS}
 
@@ -241,12 +320,12 @@ def build_best_outfit(clothes, profile=None):
         if category in categories:
             categories[category].append(item)
 
-    available_slots = []
     for key in OUTFIT_SLOTS:
         if categories[key]:
             categories[key].sort(key=lambda x: x["score"], reverse=True)
             categories[key] = categories[key][:MAX_OUTFIT_CANDIDATES]
-            available_slots.append(key)
+
+    available_slots = filter_available_slots(categories, profile)
 
     if not available_slots:
         final_score, _ = calculate_outfit_score({}, profile)

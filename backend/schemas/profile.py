@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class UserProfileCreate(BaseModel):
@@ -29,3 +29,15 @@ class UserProfileResponse(BaseModel):
     season: str
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator(
+        "favorite_colors",
+        "style_tags",
+        "fit_tags",
+        "avoid_colors",
+        "occasion_preferences",
+        mode="before",
+    )
+    @classmethod
+    def ensure_list(cls, value):
+        return value or []
