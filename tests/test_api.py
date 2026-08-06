@@ -101,6 +101,12 @@ def test_register_login_wardrobe_profile_and_feedback():
     assert "weather" in agent_response.json()
     assert "explanation" in agent_response.json()
     assert "history_id" in agent_response.json()
+    assert "memory" in agent_response.json()
+
+    memory_response = client.get("/memory/", headers=headers)
+    assert memory_response.status_code == 200
+    assert "profile" in memory_response.json()
+    assert "recent_history" in memory_response.json()
 
     history_response = client.get("/history/", headers=headers)
     assert history_response.status_code == 200

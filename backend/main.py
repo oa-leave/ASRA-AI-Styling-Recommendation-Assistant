@@ -1,7 +1,7 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import agent, auth, feedback, history, profile, recommend, user, wardrobe
+from backend.routers import agent, auth, feedback, history, memory, profile, recommend, user, wardrobe
 from backend.utils.dependencies import get_current_user
 from database import models  # noqa: F401
 from database.connection import Base, engine
@@ -32,6 +32,7 @@ app.include_router(profile.router)
 app.include_router(feedback.router)
 app.include_router(history.router)
 app.include_router(agent.router)
+app.include_router(memory.router)
 
 
 @app.get("/")

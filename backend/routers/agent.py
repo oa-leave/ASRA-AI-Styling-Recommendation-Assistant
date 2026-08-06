@@ -32,6 +32,7 @@ def agent_recommend(
         payload.occasion,
         result.get("recommendation"),
         result.get("profile"),
+        result.get("memory"),
     )
 
     return {
@@ -41,6 +42,7 @@ def agent_recommend(
         "weather": result.get("weather"),
         "scene": result.get("scene"),
         "recommendation": result.get("recommendation"),
+        "memory": result.get("memory"),
         "explanation": explanation,
         "history_id": result.get("history_id"),
     }

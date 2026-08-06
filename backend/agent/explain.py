@@ -3,12 +3,15 @@ from typing import Any, Dict, Optional
 
 import requests
 
+from backend.services.memory_service import build_memory_text
+
 
 def build_deterministic_explanation(
     city: str,
     weather: Optional[Dict[str, Any]],
     occasion: str,
     recommendation: Optional[Dict[str, Any]],
+    memory: Optional[Dict[str, Any]] = None,
 ) -> str:
     weather_text = "天气未知"
     if weather:
@@ -18,7 +21,9 @@ def build_deterministic_explanation(
     names = "、".join(item["name"] for item in items) or "暂无可推荐衣物"
     summary = "、".join(recommendation.get("summary", [])) if recommendation else ""
     reason = f"，理由：{summary}" if summary else ""
-    return f"今天{city}{weather_text}，{occasion}场景，推荐：{names}{reason}。"
+    memory_text = build_memory_text(memory) if memory else ""
+    memory_part = f" 记忆：{memory_text}" if memory_text else ""
+    return f"今天{city}{weather_text}，{occasion}场景，推荐：{names}{reason}。{memory_part}".strip()
 
 
 def generate_llm_explanation(
@@ -27,15 +32,23 @@ def generate_llm_explanation(
     occasion: str,
     recommendation: Optional[Dict[str, Any]],
     profile: Optional[Dict[str, Any]] = None,
+    memory: Optional[Dict[str, Any]] = None,
 ) -> str:
     api_key = os.getenv("LLM_API_KEY")
     if not api_key:
-        return build_deterministic_explanation(city, weather, occasion, recommendation)
+        return build_deterministic_explanation(
+            city,
+            weather,
+            occasion,
+            recommendation,
+            memory,
+        )
 
     base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
     model = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
     try:
+        memory_text = build_memory_text(memory) if memory else ""
         response = requests.post(
             f"{base_url.rstrip('/')}/chat/completions",
             headers={
@@ -53,7 +66,7 @@ def generate_llm_explanation(
                         "role": "user",
                         "content": (
                             f"城市:{city}，天气:{weather}，场景:{occasion}，"
-                            f"推荐:{recommendation}，用户画像:{profile}"
+                            f"推荐:{recommendation}，用户画像:{profile}，记忆:{memory_text}"
                         ),
                     },
                 ],
@@ -66,4 +79,10 @@ def generate_llm_explanation(
         content = response.json()["choices"][0]["message"]["content"].strip()
         return content
     except Exception:
-        return build_deterministic_explanation(city, weather, occasion, recommendation)
+        return build_deterministic_explanation(
+            city,
+            weather,
+            occasion,
+            recommendation,
+            memory,
+        )

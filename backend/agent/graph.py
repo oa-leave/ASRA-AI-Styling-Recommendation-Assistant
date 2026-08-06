@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend.agent.state import AgentState
 from backend.agent.tools import analyze_scene, get_weather
+from backend.services.memory_service import get_user_memory
 from backend.services.recommend_service import generate_recommendation
 
 
@@ -17,6 +18,9 @@ def build_agent_graph(db: Session):
         if state.get("style"):
             scene["style"] = state["style"]
         return {"scene": scene}
+
+    def load_memory_node(state: AgentState) -> Dict[str, Any]:
+        return {"memory": get_user_memory(db, state["user_id"])}
 
     def recommend_node(state: AgentState) -> Dict[str, Any]:
         result = generate_recommendation(
@@ -40,11 +44,13 @@ def build_agent_graph(db: Session):
     workflow = StateGraph(AgentState)
     workflow.add_node("fetch_weather", fetch_weather_node)
     workflow.add_node("analyze_scene", analyze_scene_node)
+    workflow.add_node("load_memory", load_memory_node)
     workflow.add_node("recommend", recommend_node)
 
     workflow.add_edge(START, "fetch_weather")
     workflow.add_edge("fetch_weather", "analyze_scene")
-    workflow.add_edge("analyze_scene", "recommend")
+    workflow.add_edge("analyze_scene", "load_memory")
+    workflow.add_edge("load_memory", "recommend")
     workflow.add_edge("recommend", END)
 
     return workflow.compile()

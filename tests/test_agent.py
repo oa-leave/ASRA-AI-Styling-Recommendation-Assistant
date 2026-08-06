@@ -1,6 +1,7 @@
 from backend.agent.explain import build_deterministic_explanation
 from backend.agent.graph import build_agent_graph
 from backend.agent.tools import analyze_scene, get_fallback_weather, get_weather
+from backend.services.memory_service import build_memory_text
 from database.connection import SessionLocal
 
 
@@ -40,3 +41,13 @@ def test_deterministic_explanation():
     )
     assert "白色T恤" in explanation
     assert "通勤" in explanation
+
+
+def test_build_memory_text():
+    text = build_memory_text({
+        "profile": {"style": "休闲", "favorite_color": "白色"},
+        "recent_history": [{"id": 1}],
+        "feedback_summary": {"like_count": 2, "dislike_count": 1},
+    })
+    assert "休闲" in text
+    assert "最近有1次推荐记录" in text

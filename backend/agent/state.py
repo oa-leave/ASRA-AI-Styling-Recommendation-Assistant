@@ -10,4 +10,5 @@ class AgentState(TypedDict, total=False):
     scene: Optional[Dict[str, Any]]
     profile: Optional[Dict[str, Any]]
     wardrobe: List[Dict[str, Any]]
+    memory: Optional[Dict[str, Any]]
     recommendation: Optional[Dict[str, Any]]
