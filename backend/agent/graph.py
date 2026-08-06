@@ -28,6 +28,7 @@ def build_agent_graph(db: Session):
             db,
             weather=state.get("weather"),
             scene=state.get("scene"),
+            memory=state.get("memory"),
             history_context={
                 "source": "agent",
                 "city": state.get("city"),

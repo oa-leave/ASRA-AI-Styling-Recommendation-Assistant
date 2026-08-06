@@ -27,6 +27,7 @@ def get_user_memory(
     db: Session,
     user_id: int,
     history_limit: int = 10,
+    feedback_limit: int = 20,
 ) -> Dict[str, Any]:
     profile = (
         db.query(UserProfile)
@@ -45,6 +46,8 @@ def get_user_memory(
     feedback_rows = (
         db.query(RecommendationFeedback)
         .filter(RecommendationFeedback.user_id == user_id)
+        .order_by(RecommendationFeedback.id.desc())
+        .limit(feedback_limit)
         .all()
     )
 
@@ -65,6 +68,30 @@ def get_user_memory(
             "reason": feedback.reason,
         })
 
+    style_counter = {}
+    color_counter = {}
+    for history in recent_history:
+        response = history.response_snapshot or {}
+        items = response.get("items") or []
+        for item in items:
+            style = item.get("style")
+            color = item.get("color")
+            if style:
+                style_counter[style] = style_counter.get(style, 0) + 1
+            if color:
+                color_counter[color] = color_counter.get(color, 0) + 1
+
+    favorite_styles = sorted(
+        style_counter,
+        key=style_counter.get,
+        reverse=True,
+    )[:3]
+    favorite_colors = sorted(
+        color_counter,
+        key=color_counter.get,
+        reverse=True,
+    )[:3]
+
     return {
         "profile": _profile_to_dict(profile),
         "recent_history": [
@@ -77,6 +104,10 @@ def get_user_memory(
             for history in recent_history
         ],
         "feedback_summary": feedback_summary,
+        "preference_signals": {
+            "favorite_styles": favorite_styles,
+            "favorite_colors": favorite_colors,
+        },
     }
 
 

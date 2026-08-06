@@ -107,6 +107,7 @@ def test_register_login_wardrobe_profile_and_feedback():
     assert memory_response.status_code == 200
     assert "profile" in memory_response.json()
     assert "recent_history" in memory_response.json()
+    assert "preference_signals" in memory_response.json()
 
     history_response = client.get("/history/", headers=headers)
     assert history_response.status_code == 200

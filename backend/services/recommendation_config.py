@@ -84,3 +84,10 @@ SEASON_CATEGORY_RULES = {
         "required_categories": ["外套"],
     },
 }
+
+MEMORY_BONUS = {
+    "liked_item": 5,
+    "disliked_item": -10,
+    "favorite_style": 10,
+    "favorite_color": 8,
+}

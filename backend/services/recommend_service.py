@@ -4,10 +4,12 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from backend.services.recommendation_engine import (
+    _color_group_name,
     build_top_outfits,
     calculate_clothes_score,
     generate_summary,
 )
+from backend.services.recommendation_config import MEMORY_BONUS
 from database.models import RecommendationHistory, User, UserProfile, Wardrobe
 
 
@@ -35,10 +37,69 @@ def _build_items(outfit: Dict[str, Any]) -> List[Dict[str, Any]]:
             "slot": slot,
             "name": item["name"],
             "score": item["score"],
+            "style": item.get("style"),
+            "color": item.get("color"),
             "reason": item.get("reason", []),
         }
         for slot, item in outfit.items()
     ]
+
+
+def _collect_names(snapshot: Any) -> List[str]:
+    names = []
+    if isinstance(snapshot, dict):
+        for value in snapshot.values():
+            if isinstance(value, dict):
+                if value.get("name"):
+                    names.append(str(value["name"]))
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict) and item.get("name"):
+                        names.append(str(item["name"]))
+            elif value:
+                names.append(str(value))
+    return names
+
+
+def _apply_memory_adjustments(
+    scored: List[Dict[str, Any]],
+    memory: Optional[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if not memory:
+        return scored
+
+    liked_names = set()
+    disliked_names = set()
+    feedback = memory.get("feedback_summary") or {}
+    for item in feedback.get("recent", []):
+        snapshot = item.get("outfit_snapshot")
+        names = _collect_names(snapshot)
+        if item.get("feedback_type") == "like":
+            liked_names.update(names)
+        elif item.get("feedback_type") == "dislike":
+            disliked_names.update(names)
+
+    preferences = memory.get("preference_signals") or {}
+    favorite_styles = set(preferences.get("favorite_styles") or [])
+    favorite_color_groups = {
+        group
+        for color in (preferences.get("favorite_colors") or [])
+        if (group := _color_group_name(color))
+    }
+
+    for item in scored:
+        name = item.get("name")
+        if name in liked_names:
+            item["score"] += MEMORY_BONUS["liked_item"]
+        if name in disliked_names:
+            item["score"] += MEMORY_BONUS["disliked_item"]
+        if item.get("style") in favorite_styles:
+            item["score"] += MEMORY_BONUS["favorite_style"]
+        item_color_group = _color_group_name(item.get("color"))
+        if item_color_group in favorite_color_groups:
+            item["score"] += MEMORY_BONUS["favorite_color"]
+
+    return scored
 
 
 def generate_recommendation(
@@ -46,6 +107,7 @@ def generate_recommendation(
     db: Session,
     weather: Optional[Dict[str, Any]] = None,
     scene: Optional[Dict[str, Any]] = None,
+    memory: Optional[Dict[str, Any]] = None,
     top_n: int = 3,
     history_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -62,17 +124,32 @@ def generate_recommendation(
     )
 
     profile_data = _profile_to_dict(profile) or {}
+    context_data = {}
     if scene and scene.get("style"):
-        profile_data = {**profile_data, "style": scene["style"]}
+        context_data["style"] = scene["style"]
     if weather and weather.get("season"):
-        profile_data = {**profile_data, "season": weather["season"]}
+        context_data["season"] = weather["season"]
 
-    profile_obj = SimpleNamespace(**profile_data) if profile_data else None
+    engine_profile_data = {**profile_data, **context_data}
+    profile_obj = (
+        SimpleNamespace(**engine_profile_data)
+        if engine_profile_data
+        else None
+    )
+    summary_profile_data = {**profile_data}
+    if "season" in context_data:
+        summary_profile_data["season"] = context_data["season"]
+    summary_profile = (
+        SimpleNamespace(**summary_profile_data)
+        if summary_profile_data
+        else None
+    )
     scored, filtered_reasons = calculate_clothes_score(
         wardrobe,
         profile_obj,
         collect_filtered=True,
     )
+    scored = _apply_memory_adjustments(scored, memory)
     outfit_results = build_top_outfits(scored, profile_obj, top_n=top_n)
     best = outfit_results[0] if outfit_results else {
         "outfit": {},
@@ -81,7 +158,7 @@ def generate_recommendation(
     }
 
     items = _build_items(best["outfit"])
-    summary = generate_summary(best["outfit"], best["reason"], profile_obj)
+    summary = generate_summary(best["outfit"], best["reason"], summary_profile)
 
     top_outfits = []
     for outfit_result in outfit_results:
@@ -91,7 +168,7 @@ def generate_recommendation(
             "summary": generate_summary(
                 outfit_result["outfit"],
                 outfit_result["reason"],
-                profile_obj,
+                summary_profile,
             ),
         })
 
@@ -120,6 +197,7 @@ def generate_recommendation(
         "user_id": user_id,
         "username": user.username if user else None,
         "profile": profile_data,
+        "context_profile": engine_profile_data,
         "clothes_count": len(wardrobe),
         "recommendation": {
             "outfit_score": best["score"],
