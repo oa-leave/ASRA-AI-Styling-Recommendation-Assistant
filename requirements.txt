@@ -13,3 +13,6 @@ email-validator
 pytest
 httpx
 alembic
+langgraph
+langchain-core
+requests

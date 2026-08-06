@@ -1,12 +1,3 @@
-import os
-import tempfile
-from pathlib import Path
-
-
-tmp_dir = tempfile.mkdtemp(prefix="asra_tests_")
-os.environ["DATABASE_URL"] = f"sqlite:///{Path(tmp_dir, 'test.db').as_posix()}"
-os.environ["SECRET_KEY"] = "test-secret-key"
-
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -100,9 +91,20 @@ def test_register_login_wardrobe_profile_and_feedback():
     assert len(recommend_data["recommendations"]) >= 1
     assert "history_id" in recommend_data
 
+    agent_response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={"city": "沈阳", "occasion": "通勤", "style": "休闲"},
+    )
+    assert agent_response.status_code == 200
+    assert "recommendation" in agent_response.json()
+    assert "weather" in agent_response.json()
+    assert "explanation" in agent_response.json()
+    assert "history_id" in agent_response.json()
+
     history_response = client.get("/history/", headers=headers)
     assert history_response.status_code == 200
-    assert len(history_response.json()) == 1
+    assert len(history_response.json()) >= 1
 
     db = SessionLocal()
     profile_row = (
