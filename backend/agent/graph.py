@@ -1,57 +1,55 @@
+"""LangGraph 状态图：决策后按 tool_plan 顺序动态执行注册工具。"""
 from typing import Any, Dict
 
 from langgraph.graph import END, START, StateGraph
 from sqlalchemy.orm import Session
 
+from backend.agent.decision import decide_agent_plan
+from backend.agent.registry import DEFAULT_TOOL_PLAN, TOOL_REGISTRY
 from backend.agent.state import AgentState
-from backend.agent.tools import analyze_scene, get_weather
-from backend.services.memory_service import get_user_memory
-from backend.services.recommend_service import generate_recommendation
+
+
+def _execute_tool_plan(
+    state: AgentState,
+    db: Session,
+) -> Dict[str, Any]:
+    """按 tool_plan 顺序执行工具，保持 LLM/规则给出的顺序。"""
+    plan = state.get("tool_plan") or DEFAULT_TOOL_PLAN
+    current = dict(state)
+
+    for tool_name in plan:
+        tool = TOOL_REGISTRY.get(tool_name)
+        if tool:
+            current.update(tool(current, db))
+
+    return current
 
 
 def build_agent_graph(db: Session):
-    def fetch_weather_node(state: AgentState) -> Dict[str, Any]:
-        return {"weather": get_weather(state["city"])}
-
-    def analyze_scene_node(state: AgentState) -> Dict[str, Any]:
-        scene = analyze_scene(state["occasion"])
-        if state.get("style"):
-            scene["style"] = state["style"]
-        return {"scene": scene}
-
-    def load_memory_node(state: AgentState) -> Dict[str, Any]:
-        return {"memory": get_user_memory(db, state["user_id"])}
-
-    def recommend_node(state: AgentState) -> Dict[str, Any]:
-        result = generate_recommendation(
-            state["user_id"],
-            db,
-            weather=state.get("weather"),
-            scene=state.get("scene"),
-            memory=state.get("memory"),
-            history_context={
-                "source": "agent",
-                "city": state.get("city"),
-                "occasion": state.get("occasion"),
-                "style": state.get("style"),
-            },
+    def decide_plan_node(state: AgentState) -> Dict[str, Any]:
+        """LLM 或规则决定本次请求的城市、场景、风格和工具计划。"""
+        plan = decide_agent_plan(
+            query=state.get("query"),
+            city=state.get("city"),
+            occasion=state.get("occasion"),
+            style=state.get("style"),
         )
         return {
-            "recommendation": result["recommendation"],
-            "profile": result["profile"],
-            "history_id": result["history_id"],
+            "city": plan["city"],
+            "occasion": plan["occasion"],
+            "style": plan["style"],
+            "tool_plan": plan["tool_plan"],
         }
 
     workflow = StateGraph(AgentState)
-    workflow.add_node("fetch_weather", fetch_weather_node)
-    workflow.add_node("analyze_scene", analyze_scene_node)
-    workflow.add_node("load_memory", load_memory_node)
-    workflow.add_node("recommend", recommend_node)
+    workflow.add_node("decide_plan", decide_plan_node)
+    workflow.add_node(
+        "execute_plan",
+        lambda state: _execute_tool_plan(state, db),
+    )
 
-    workflow.add_edge(START, "fetch_weather")
-    workflow.add_edge("fetch_weather", "analyze_scene")
-    workflow.add_edge("analyze_scene", "load_memory")
-    workflow.add_edge("load_memory", "recommend")
-    workflow.add_edge("recommend", END)
+    workflow.add_edge(START, "decide_plan")
+    workflow.add_edge("decide_plan", "execute_plan")
+    workflow.add_edge("execute_plan", END)
 
     return workflow.compile()

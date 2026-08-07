@@ -20,6 +20,7 @@ def agent_recommend(
 ):
     graph = build_agent_graph(db)
     result = graph.invoke({
+        "query": payload.query,
         "city": payload.city,
         "occasion": payload.occasion,
         "style": payload.style,
@@ -27,9 +28,9 @@ def agent_recommend(
     })
 
     explanation = generate_llm_explanation(
-        payload.city,
+        result.get("city"),
         result.get("weather"),
-        payload.occasion,
+        result.get("occasion"),
         result.get("recommendation"),
         result.get("profile"),
         result.get("memory"),
@@ -41,6 +42,7 @@ def agent_recommend(
         "user": current_user.username,
         "weather": result.get("weather"),
         "scene": result.get("scene"),
+        "tool_plan": result.get("tool_plan"),
         "recommendation": result.get("recommendation"),
         "memory": result.get("memory"),
         "explanation": explanation,

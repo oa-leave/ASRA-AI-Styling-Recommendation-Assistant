@@ -99,9 +99,23 @@ def test_register_login_wardrobe_profile_and_feedback():
     assert agent_response.status_code == 200
     assert "recommendation" in agent_response.json()
     assert "weather" in agent_response.json()
+    assert "tool_plan" in agent_response.json()
     assert "explanation" in agent_response.json()
     assert "history_id" in agent_response.json()
     assert "memory" in agent_response.json()
+
+    query_agent_response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={"query": "明天上海约会穿什么？"},
+    )
+    assert query_agent_response.status_code == 200
+    assert query_agent_response.json()["tool_plan"] == [
+        "weather",
+        "scene",
+        "memory",
+        "recommend",
+    ]
 
     memory_response = client.get("/memory/", headers=headers)
     assert memory_response.status_code == 200

@@ -1,3 +1,4 @@
+from backend.agent.decision import decide_agent_plan
 from backend.agent.explain import build_deterministic_explanation
 from backend.agent.graph import build_agent_graph
 from backend.agent.tools import analyze_scene, get_fallback_weather, get_weather
@@ -22,6 +23,18 @@ def test_scene_tool():
     scene = analyze_scene("通勤")
     assert scene["style"] == "商务"
     assert scene["occasion_tags"] == ["通勤"]
+
+
+def test_deterministic_decision_from_query():
+    plan = decide_agent_plan(
+        query="明天上海约会穿什么？",
+        city=None,
+        occasion=None,
+        style=None,
+    )
+    assert plan["city"] == "上海"
+    assert plan["occasion"] == "约会"
+    assert "weather" in plan["tool_plan"]
 
 
 def test_agent_graph_compiles():
