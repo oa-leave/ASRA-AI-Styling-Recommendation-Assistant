@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend.schemas.profile import UserProfileCreate, UserProfileResponse
+from backend.schemas.profile import (
+    UserProfileCreate,
+    UserProfileResponse,
+    UserProfileUpdate,
+)
 from backend.utils.database import get_database
 from backend.utils.dependencies import get_current_user
 from backend.utils.events import record_event
@@ -55,6 +59,30 @@ def get_my_profile(
     )
     if profile is None:
         raise HTTPException(status_code=404, detail="用户画像不存在")
+    return profile
+
+
+@router.put("/me", response_model=UserProfileResponse)
+def update_my_profile(
+    payload: UserProfileUpdate,
+    db: Session = Depends(get_database),
+    current_user: User = Depends(get_current_user),
+):
+    profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == current_user.id)
+        .first()
+    )
+    if profile is None:
+        raise HTTPException(status_code=404, detail="用户画像不存在")
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(profile, field, value)
+
+    db.commit()
+    db.refresh(profile)
+    record_event(db, current_user.id, "profile_update")
     return profile
 
 

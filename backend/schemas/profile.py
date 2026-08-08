@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserProfileCreate(BaseModel):
@@ -8,11 +8,23 @@ class UserProfileCreate(BaseModel):
     favorite_color: str
     body_type: str
     season: str
-    favorite_colors: List[str] = []
-    style_tags: List[str] = []
-    fit_tags: List[str] = []
-    avoid_colors: List[str] = []
-    occasion_preferences: List[str] = []
+    favorite_colors: List[str] = Field(default_factory=list)
+    style_tags: List[str] = Field(default_factory=list)
+    fit_tags: List[str] = Field(default_factory=list)
+    avoid_colors: List[str] = Field(default_factory=list)
+    occasion_preferences: List[str] = Field(default_factory=list)
+
+
+class UserProfileUpdate(BaseModel):
+    style: Optional[str] = None
+    favorite_color: Optional[str] = None
+    body_type: Optional[str] = None
+    season: Optional[str] = None
+    favorite_colors: Optional[List[str]] = None
+    style_tags: Optional[List[str]] = None
+    fit_tags: Optional[List[str]] = None
+    avoid_colors: Optional[List[str]] = None
+    occasion_preferences: Optional[List[str]] = None
 
 
 class UserProfileResponse(BaseModel):

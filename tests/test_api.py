@@ -1,3 +1,6 @@
+from io import BytesIO
+
+from PIL import Image
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -59,6 +62,34 @@ def test_register_login_wardrobe_profile_and_feedback():
     assert len(list_response.json()) == 1
     assert list_response.json()[0]["color_tags"] == ["白色", "基础色"]
     assert list_response.json()[0]["occasion_tags"] == ["通勤"]
+
+    image_bytes = BytesIO()
+    Image.new("RGB", (32, 32), (255, 255, 255)).save(image_bytes, format="JPEG")
+    image_bytes.seek(0)
+    upload_response = client.post(
+        "/wardrobe/analyze-image",
+        headers=headers,
+        files={"file": ("white.jpg", image_bytes, "image/jpeg")},
+    )
+    assert upload_response.status_code == 200
+    candidate = upload_response.json()
+    assert candidate["color"] == "白色"
+    assert candidate["image_path"]
+    assert candidate["recognition_status"] == "pending"
+
+    confirm_response = client.post(
+        "/wardrobe/confirm-image",
+        headers=headers,
+        json={
+            **candidate,
+            "name": "白色T恤",
+            "recognition_status": "confirmed",
+        },
+    )
+    assert confirm_response.status_code == 201
+
+    confirmed_list = client.get("/wardrobe/", headers=headers)
+    assert len(confirmed_list.json()) == 2
 
     profile_response = client.post(
         "/profile/create",
@@ -148,6 +179,26 @@ def test_register_login_wardrobe_profile_and_feedback():
     assert legacy_profile_response.json()["fit_tags"] == []
     assert legacy_profile_response.json()["avoid_colors"] == []
     assert legacy_profile_response.json()["occasion_preferences"] == []
+
+    update_response = client.put(
+        "/profile/me",
+        headers=headers,
+        json={
+            "style": "商务",
+            "favorite_color": "蓝色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["蓝色", "黑色"],
+            "style_tags": ["简约", "通勤"],
+            "fit_tags": ["修身"],
+            "avoid_colors": ["粉色"],
+            "occasion_preferences": ["通勤", "会议"],
+        },
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["style"] == "商务"
+    assert update_response.json()["favorite_colors"] == ["蓝色", "黑色"]
+    assert update_response.json()["avoid_colors"] == ["粉色"]
 
     feedback_response = client.post(
         "/feedback/",

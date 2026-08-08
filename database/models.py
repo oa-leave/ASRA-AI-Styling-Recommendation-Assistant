@@ -40,6 +40,8 @@ class Wardrobe(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    image_path = Column(String(255), nullable=True)
+    recognition_status = Column(String(30), default="manual")
     category = Column(String(50))
     color = Column(String(50))
     season = Column(String(50))
