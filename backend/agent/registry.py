@@ -4,11 +4,15 @@ from typing import Any, Callable, Dict
 from sqlalchemy.orm import Session
 
 from backend.agent.tools import analyze_scene, get_weather
+from backend.services.knowledge_service import (
+    build_knowledge_text,
+    retrieve_fashion_rules,
+)
 from backend.services.memory_service import get_user_memory
 from backend.services.recommend_service import generate_recommendation
 
 
-DEFAULT_TOOL_PLAN = ["weather", "scene", "memory", "recommend"]
+DEFAULT_TOOL_PLAN = ["weather", "scene", "memory", "knowledge", "recommend"]
 
 
 def weather_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
@@ -27,6 +31,25 @@ def scene_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
 def memory_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
     """记忆工具：读取用户画像、历史和反馈。"""
     return {"memory": get_user_memory(db, state["user_id"])}
+
+
+def knowledge_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
+    """穿搭知识工具：根据当前上下文检索穿搭规则。"""
+    profile = state.get("profile") or {}
+    scene = state.get("scene") or {}
+    weather = state.get("weather") or {}
+
+    rules = retrieve_fashion_rules(
+        style=scene.get("style") or profile.get("style"),
+        occasion=state.get("occasion"),
+        season=weather.get("season"),
+        colors=profile.get("favorite_colors") or [],
+        tags=profile.get("style_tags") or [],
+    )
+    return {
+        "knowledge_rules": rules,
+        "knowledge_text": build_knowledge_text(rules),
+    }
 
 
 def recommend_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
@@ -59,5 +82,6 @@ TOOL_REGISTRY: Dict[str, Callable[[Dict[str, Any], Session], Dict[str, Any]]] = 
     "weather": weather_tool,
     "scene": scene_tool,
     "memory": memory_tool,
+    "knowledge": knowledge_tool,
     "recommend": recommend_tool,
 }

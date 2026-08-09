@@ -12,6 +12,7 @@ def build_deterministic_explanation(
     occasion: str,
     recommendation: Optional[Dict[str, Any]],
     memory: Optional[Dict[str, Any]] = None,
+    knowledge_text: Optional[str] = None,
 ) -> str:
     weather_text = "天气未知"
     if weather:
@@ -23,7 +24,11 @@ def build_deterministic_explanation(
     reason = f"，理由：{summary}" if summary else ""
     memory_text = build_memory_text(memory) if memory else ""
     memory_part = f" 记忆：{memory_text}" if memory_text else ""
-    return f"今天{city}{weather_text}，{occasion}场景，推荐：{names}{reason}。{memory_part}".strip()
+    knowledge_part = f" 穿搭知识：{knowledge_text}" if knowledge_text else ""
+    return (
+        f"今天{city}{weather_text}，{occasion}场景，推荐：{names}{reason}。"
+        f"{memory_part}{knowledge_part}"
+    ).strip()
 
 
 def generate_llm_explanation(
@@ -33,6 +38,7 @@ def generate_llm_explanation(
     recommendation: Optional[Dict[str, Any]],
     profile: Optional[Dict[str, Any]] = None,
     memory: Optional[Dict[str, Any]] = None,
+    knowledge_text: Optional[str] = None,
 ) -> str:
     api_key = os.getenv("LLM_API_KEY")
     if not api_key:
@@ -42,6 +48,7 @@ def generate_llm_explanation(
             occasion,
             recommendation,
             memory,
+            knowledge_text,
         )
 
     base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
@@ -49,6 +56,7 @@ def generate_llm_explanation(
 
     try:
         memory_text = build_memory_text(memory) if memory else ""
+        knowledge = knowledge_text or ""
         response = requests.post(
             f"{base_url.rstrip('/')}/chat/completions",
             headers={
@@ -66,7 +74,8 @@ def generate_llm_explanation(
                         "role": "user",
                         "content": (
                             f"城市:{city}，天气:{weather}，场景:{occasion}，"
-                            f"推荐:{recommendation}，用户画像:{profile}，记忆:{memory_text}"
+                            f"推荐:{recommendation}，用户画像:{profile}，"
+                            f"记忆:{memory_text}，穿搭知识:{knowledge}"
                         ),
                     },
                 ],
@@ -85,4 +94,5 @@ def generate_llm_explanation(
             occasion,
             recommendation,
             memory,
+            knowledge_text,
         )

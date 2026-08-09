@@ -107,3 +107,22 @@ class ClothingAnalyzeResponse(BaseModel):
     occasion_tags: List[str]
     image_path: str
     recognition_status: str
+    clothes_id: Optional[int] = None
+
+
+class ClothingTaskUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    color: Optional[str] = None
+    style: Optional[str] = None
+    season: Optional[str] = None
+    color_tags: Optional[List[str]] = None
+    style_tags: Optional[List[str]] = None
+    fit_tags: Optional[List[str]] = None
+    occasion_tags: Optional[List[str]] = None
+
+
+class ClothingAnalyzeTaskResponse(BaseModel):
+    task_id: int
+    status: str
+    candidate: ClothingAnalyzeResponse

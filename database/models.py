@@ -33,6 +33,11 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    recognition_tasks = relationship(
+        "ClothingRecognitionTask",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Wardrobe(Base):
@@ -53,6 +58,19 @@ class Wardrobe(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     user = relationship("User", back_populates="wardrobes")
+
+
+class ClothingRecognitionTask(Base):
+    __tablename__ = "clothing_recognition_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    image_path = Column(String(255), nullable=False)
+    result = Column(JSON, default=dict)
+    status = Column(String(30), default="pending")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="recognition_tasks")
 
 
 class UserProfile(Base):

@@ -49,7 +49,7 @@ def deterministic_decision(
         "city": city,
         "occasion": occasion,
         "style": style,
-        "tool_plan": ["weather", "scene", "memory", "recommend"],
+        "tool_plan": ["weather", "scene", "memory", "knowledge", "recommend"],
         "source": "deterministic",
     }
 
@@ -113,6 +113,7 @@ def decide_agent_plan(
                 "weather",
                 "scene",
                 "memory",
+                "knowledge",
                 "recommend",
             ],
             "source": "llm",

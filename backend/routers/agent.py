@@ -34,6 +34,7 @@ def agent_recommend(
         result.get("recommendation"),
         result.get("profile"),
         result.get("memory"),
+        result.get("knowledge_text"),
     )
 
     return {
@@ -45,6 +46,8 @@ def agent_recommend(
         "tool_plan": result.get("tool_plan"),
         "recommendation": result.get("recommendation"),
         "memory": result.get("memory"),
+        "knowledge_rules": result.get("knowledge_rules"),
+        "knowledge_text": result.get("knowledge_text"),
         "explanation": explanation,
         "history_id": result.get("history_id"),
     }

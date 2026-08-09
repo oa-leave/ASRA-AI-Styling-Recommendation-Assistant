@@ -344,6 +344,46 @@ def test_build_best_outfit_searches_combinations():
     assert result["outfit"]["裤子"]["name"] == "黑色休闲裤"
 
 
+def test_onepiece_category_maps_to_dress_slot():
+    clothes = [
+        {
+            "id": 1,
+            "name": "红色旗袍",
+            "category": "旗袍",
+            "color": "红色",
+            "style": "中式",
+            "season": "四季",
+            "score": 100,
+            "reason": ["风格"],
+        },
+        {
+            "id": 2,
+            "name": "白色T恤",
+            "category": "上衣",
+            "color": "白色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+        {
+            "id": 3,
+            "name": "黑色裤子",
+            "category": "裤子",
+            "color": "黑色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+    ]
+
+    result = build_best_outfit(clothes)
+    assert "连衣裙" in result["outfit"]
+    assert "上衣" not in result["outfit"]
+    assert "裤子" not in result["outfit"]
+
+
 def test_core_outfit_bonus():
     outfit = {
         "上衣": {

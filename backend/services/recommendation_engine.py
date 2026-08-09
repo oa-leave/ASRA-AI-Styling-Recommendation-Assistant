@@ -1,12 +1,14 @@
 from itertools import product
 
 from backend.services.recommendation_config import (
+    CATEGORY_TO_SLOT,
     COLOR_CLASH_PAIRS,
     COLOR_GROUPS,
     COMPATIBILITY_PENALTIES,
     MAX_OUTFIT_CANDIDATES,
     MIN_OUTFIT_ITEMS,
     NEUTRAL_COLOR_GROUPS,
+    ONEPIECE_SLOT,
     OUTFIT_BONUS,
     OUTFIT_SLOTS,
     REQUIRED_OUTFIT_SLOTS,
@@ -249,6 +251,13 @@ def filter_available_slots(categories, profile):
         if key in avoid_categories:
             continue
         slots.append(key)
+
+    if categories.get(ONEPIECE_SLOT):
+        slots = [
+            slot
+            for slot in slots
+            if slot not in {"内搭", "上衣", "裤子", "裙子"}
+        ]
     return slots
 
 
@@ -280,7 +289,7 @@ def build_top_outfits(clothes, profile=None, top_n=3):
     categories = {slot: [] for slot in OUTFIT_SLOTS}
 
     for item in clothes:
-        category = item["category"]
+        category = CATEGORY_TO_SLOT.get(item["category"], item["category"])
         if category in categories:
             categories[category].append(item)
 
@@ -316,7 +325,7 @@ def build_best_outfit(clothes, profile=None):
     categories = {slot: [] for slot in OUTFIT_SLOTS}
 
     for item in clothes:
-        category = item["category"]
+        category = CATEGORY_TO_SLOT.get(item["category"], item["category"])
         if category in categories:
             categories[category].append(item)
 

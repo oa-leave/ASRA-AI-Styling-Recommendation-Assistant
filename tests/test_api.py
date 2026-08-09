@@ -72,24 +72,61 @@ def test_register_login_wardrobe_profile_and_feedback():
         files={"file": ("white.jpg", image_bytes, "image/jpeg")},
     )
     assert upload_response.status_code == 200
-    candidate = upload_response.json()
+    upload_data = upload_response.json()
+    task_id = upload_data["task_id"]
+    candidate = upload_data["candidate"]
+    assert upload_data["status"] == "pending"
     assert candidate["color"] == "白色"
     assert candidate["image_path"]
     assert candidate["recognition_status"] == "pending"
 
-    confirm_response = client.post(
-        "/wardrobe/confirm-image",
+    update_task_response = client.put(
+        f"/wardrobe/task/{task_id}",
         headers=headers,
         json={
-            **candidate,
             "name": "白色T恤",
-            "recognition_status": "confirmed",
+            "category": "上衣",
         },
+    )
+    assert update_task_response.status_code == 200
+
+    confirm_response = client.post(
+        f"/wardrobe/confirm-task/{task_id}",
+        headers=headers,
     )
     assert confirm_response.status_code == 201
 
     confirmed_list = client.get("/wardrobe/", headers=headers)
     assert len(confirmed_list.json()) == 2
+
+    auto_image_bytes = BytesIO()
+    Image.new("RGB", (32, 32), (0, 0, 0)).save(auto_image_bytes, format="JPEG")
+    auto_image_bytes.seek(0)
+    auto_response = client.post(
+        "/wardrobe/upload-and-confirm",
+        headers=headers,
+        files={"file": ("black.jpg", auto_image_bytes, "image/jpeg")},
+    )
+    assert auto_response.status_code == 201
+
+    auto_list = client.get("/wardrobe/", headers=headers)
+    assert len(auto_list.json()) == 3
+
+    one_shot_bytes = BytesIO()
+    Image.new("RGB", (32, 32), (255, 0, 0)).save(one_shot_bytes, format="JPEG")
+    one_shot_bytes.seek(0)
+    one_shot_response = client.post(
+        "/wardrobe/analyze-image?auto_save=true",
+        headers=headers,
+        files={"file": ("red.jpg", one_shot_bytes, "image/jpeg")},
+    )
+    assert one_shot_response.status_code == 200
+    one_shot_data = one_shot_response.json()
+    assert one_shot_data["status"] == "confirmed"
+    assert one_shot_data["candidate"]["clothes_id"] is not None
+
+    one_shot_list = client.get("/wardrobe/", headers=headers)
+    assert len(one_shot_list.json()) == 4
 
     profile_response = client.post(
         "/profile/create",
@@ -145,6 +182,7 @@ def test_register_login_wardrobe_profile_and_feedback():
         "weather",
         "scene",
         "memory",
+        "knowledge",
         "recommend",
     ]
 
