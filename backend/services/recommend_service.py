@@ -108,6 +108,7 @@ def generate_recommendation(
     weather: Optional[Dict[str, Any]] = None,
     scene: Optional[Dict[str, Any]] = None,
     memory: Optional[Dict[str, Any]] = None,
+    conversation_context: Optional[Dict[str, Any]] = None,
     top_n: int = 3,
     history_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -124,6 +125,11 @@ def generate_recommendation(
     )
 
     profile_data = _profile_to_dict(profile) or {}
+    if conversation_context:
+        avoid_colors = set(profile_data.get("avoid_colors") or [])
+        avoid_colors.update(conversation_context.get("avoid_colors") or [])
+        profile_data["avoid_colors"] = list(avoid_colors)
+
     context_data = {}
     if scene and scene.get("style"):
         context_data["style"] = scene["style"]

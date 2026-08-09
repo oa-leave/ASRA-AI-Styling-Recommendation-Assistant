@@ -60,6 +60,7 @@ def recommend_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
         weather=state.get("weather"),
         scene=state.get("scene"),
         memory=state.get("memory"),
+        conversation_context=state.get("conversation_context"),
         history_context={
             "source": "agent",
             "city": state.get("city"),

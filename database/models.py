@@ -38,6 +38,11 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    conversations = relationship(
+        "ConversationSession",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Wardrobe(Base):
@@ -131,3 +136,41 @@ class RecommendationHistory(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="histories")
+
+
+class ConversationSession(Base):
+    __tablename__ = "conversation_sessions"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    context = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    user = relationship("User", back_populates="conversations")
+    messages = relationship(
+        "ConversationMessage",
+        back_populates="session",
+        cascade="all, delete-orphan",
+    )
+
+
+class ConversationMessage(Base):
+    __tablename__ = "conversation_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(
+        String(64),
+        ForeignKey("conversation_sessions.id"),
+        nullable=False,
+        index=True,
+    )
+    role = Column(String(20), nullable=False)
+    content = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    session = relationship("ConversationSession", back_populates="messages")

@@ -14,6 +14,7 @@ class AgentState(TypedDict, total=False):
     context_profile: Optional[Dict[str, Any]]
     wardrobe: List[Dict[str, Any]]
     memory: Optional[Dict[str, Any]]
+    conversation_context: Optional[Dict[str, Any]]
     knowledge_rules: List[Dict[str, Any]]
     knowledge_text: Optional[str]
     recommendation: Optional[Dict[str, Any]]
