@@ -19,6 +19,7 @@ def test_color_match_only_matches_same_color():
     assert color_match("白色", ["白色"]) is True
     assert color_match("blue", ["白色"]) is False
     assert color_match("white", ["白色"]) is True
+    assert color_match("蓝色薄外套", ["蓝"]) is True
 
 
 def test_normalize_colors():
@@ -26,11 +27,13 @@ def test_normalize_colors():
     assert normalize_colors(["白色", "黑色"]) == ["白色", "黑色"]
     assert normalize_colors(["白", "black"]) == ["白色", "黑色"]
     assert normalize_colors(["黑白"]) == ["黑色", "白色"]
+    assert normalize_colors("黑色白色") == ["黑色", "白色"]
     assert normalize_colors(None) == []
 
 
 def test_normalize_tags():
     assert normalize_tags("日系, 极简") == ["日系", "极简"]
+    assert normalize_tags('["白色", "蓝色"]') == ["白色", "蓝色"]
     assert normalize_tags(["日系", "极简"]) == ["日系", "极简"]
     assert normalize_tags(None) == []
 
@@ -177,7 +180,7 @@ def test_generate_summary():
     summary = generate_summary(outfit, reasons, profile)
     assert "休闲风格" in summary
     assert "适合夏季" in summary
-    assert "黑白灰配色降低搭配风险" in summary
+    assert "配色协调" in summary
 
 
 def test_build_top_outfits_returns_multiple():
@@ -263,7 +266,7 @@ def test_avoid_colors_penalty():
         collect_filtered=True,
     )
     assert scored == []
-    assert filtered == ["用户不喜欢该颜色"]
+    assert filtered == ["用户不喜欢红色"]
 
 
 def test_occasion_tags_add_score():

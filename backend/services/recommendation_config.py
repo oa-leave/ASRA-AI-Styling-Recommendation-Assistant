@@ -141,3 +141,35 @@ MEMORY_BONUS = {
     "favorite_style": 10,
     "favorite_color": 8,
 }
+
+RECENT_LIKED_COLOR_BONUS = 10
+
+SCENE_SCORING = {
+    "约会": {
+        "fit_bonus": 20,
+        "fit_keywords": ["合身", "修身"],
+        "soft_color_bonus": 15,
+        "soft_colors": ["粉色", "白色", "米色", "紫色", "浅蓝"],
+        "shoes_bonus": 10,
+        "shoes_keywords": ["皮鞋", "乐福鞋", "单鞋", "低跟鞋"],
+        "sporty_penalty": 10,
+        "sporty_keywords": ["运动鞋", "卫衣", "牛仔裤"],
+    }
+}
+
+FORMAL_FALLBACK_BONUS = {
+    "衬衫": 20,
+    "Polo": 20,
+    "POLO": 20,
+    "polo": 20,
+    "直筒裤": 15,
+    "西裤": 20,
+    "皮鞋": 15,
+    "乐福鞋": 15,
+}
+
+FORMAL_FALLBACK_PENALTY = {
+    "T恤": 10,
+    "运动鞋": 15,
+    "牛仔裤": 10,
+}

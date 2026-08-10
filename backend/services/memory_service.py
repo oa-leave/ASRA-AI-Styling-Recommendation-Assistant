@@ -92,6 +92,24 @@ def get_user_memory(
         reverse=True,
     )[:3]
 
+    profile_colors = []
+    avoid_colors = set()
+    if profile:
+        profile_colors = profile.favorite_colors or []
+        avoid_colors = set(profile.avoid_colors or [])
+
+    favorite_colors = [
+        color for color in favorite_colors if color not in avoid_colors
+    ]
+    profile_colors = [
+        color for color in profile_colors if color not in avoid_colors
+    ]
+
+    merged_colors = list(
+        dict.fromkeys(favorite_colors + profile_colors)
+    )
+    favorite_colors = merged_colors[:3]
+
     return {
         "profile": _profile_to_dict(profile),
         "recent_history": [
@@ -116,9 +134,15 @@ def build_memory_text(memory: Dict[str, Any]) -> str:
 
     profile = memory.get("profile")
     if profile:
+        favorite_colors = profile.get("favorite_colors") or []
+        favorite_text = (
+            ",".join(favorite_colors)
+            if favorite_colors
+            else (profile.get("favorite_color") or "未知")
+        )
         parts.append(
             f"用户偏好：{profile.get('style') or '未知'}风格，"
-            f"喜欢颜色：{profile.get('favorite_color') or '未知'}"
+            f"喜欢颜色：{favorite_text}"
         )
 
     recent_history = memory.get("recent_history") or []

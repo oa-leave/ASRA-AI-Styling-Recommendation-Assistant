@@ -1,11 +1,38 @@
 """多轮对话服务：会话创建、消息保存、简单调整意图解析。"""
+import re
 import uuid
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from backend.agent.tools import SCENE_MAP
 from backend.services.recommendation_config import COLOR_GROUPS
 from database.models import ConversationMessage, ConversationSession
+
+
+ITEM_EXCLUDE_KEYWORDS = [
+    "短袖",
+    "长袖",
+    "T恤",
+    "卫衣",
+    "牛仔裤",
+    "西装",
+    "衬衫",
+    "风衣",
+    "运动鞋",
+    "皮鞋",
+    "裙子",
+    "外套",
+    "开衫",
+    "吊带",
+]
+
+ITEM_EXCLUDE_ALIASES = {
+    "短袖": ["短袖", "T恤"],
+    "长袖": ["长袖", "衬衫", "卫衣"],
+    "T恤": ["T恤", "短袖"],
+    "卫衣": ["卫衣", "长袖"],
+}
 
 
 def get_or_create_session(
@@ -19,11 +46,16 @@ def get_or_create_session(
             .filter(ConversationSession.id == session_id)
             .first()
         )
-        if session and session.user_id == user_id:
-            return session
+        if session:
+            if session.user_id == user_id:
+                return session
+            raise ValueError("session not owned")
+        new_session_id = session_id
+    else:
+        new_session_id = uuid.uuid4().hex
 
     session = ConversationSession(
-        id=uuid.uuid4().hex,
+        id=new_session_id,
         user_id=user_id,
         context={},
     )
@@ -78,11 +110,69 @@ def parse_adjustments(message: str, context: Optional[Dict[str, Any]]) -> Dict[s
     force_slot = set(context.get("force_slot") or [])
     remove_slot = set(context.get("remove_slot") or [])
     replace_slot = dict(context.get("replace_slot") or {})
+    removed_avoid_colors = set(context.get("removed_avoid_colors") or [])
+    exclude_item_keywords = set(context.get("exclude_item_keywords") or [])
+    liked_colors = set(context.get("liked_colors") or [])
 
+    negative_markers = [
+        "不要",
+        "不喜欢",
+        "没相中",
+        "不推荐",
+        "别",
+        "避免",
+        "讨厌",
+        "接受不了",
+        "不考虑",
+        "不用",
+    ]
+    positive_markers = ["要", "可以", "喜欢", "不回避", "现在要"]
     for color in COLOR_GROUPS:
-        for phrase in (f"不要{color}", f"不喜欢{color}", f"避免{color}"):
-            if phrase in message:
-                avoid_colors.add(color)
+        neg_regex = re.compile(
+            rf"(?:{'|'.join(negative_markers)}).{{0,8}}{re.escape(color)}"
+        )
+        pos_regex = re.compile(
+            rf"(?:{'|'.join(positive_markers)}).{{0,8}}{re.escape(color)}"
+        )
+
+        if neg_regex.search(message):
+            avoid_colors.add(color)
+            liked_colors.discard(color)
+
+        if pos_regex.search(message) and not neg_regex.search(message):
+            avoid_colors.discard(color)
+            removed_avoid_colors.add(color)
+            liked_colors.add(color)
+
+    for keyword in ITEM_EXCLUDE_KEYWORDS:
+        keyword_regex = re.compile(
+            rf"(?:{'|'.join(negative_markers)}).{{0,8}}{re.escape(keyword)}"
+        )
+        if keyword_regex.search(message):
+            exclude_item_keywords.add(keyword)
+            exclude_item_keywords.update(ITEM_EXCLUDE_ALIASES.get(keyword, []))
+
+    explicit_style = any(
+        word in message for word in ("正式", "职场", "商务")
+    )
+    if any(word in message for word in ("休闲", "舒服", "日常")):
+        explicit_style = True
+    if "运动" in message or "日系" in message:
+        explicit_style = True
+
+    if any(word in message for word in ("正式", "职场", "商务")):
+        context["style"] = "商务"
+    elif any(word in message for word in ("休闲", "舒服", "日常")):
+        context["style"] = "休闲"
+    elif "运动" in message:
+        context["style"] = "运动"
+    elif "日系" in message:
+        context["style"] = "日系"
+    elif not explicit_style:
+        for occasion in SCENE_MAP:
+            if occasion in message:
+                context["style"] = SCENE_MAP[occasion].get("style", "休闲")
+                break
 
     if "裤子" in message and ("正式" in message or "商务" in message):
         slot_style["裤子"] = "商务"
@@ -107,4 +197,7 @@ def parse_adjustments(message: str, context: Optional[Dict[str, Any]]) -> Dict[s
     context["force_slot"] = list(force_slot)
     context["remove_slot"] = list(remove_slot)
     context["replace_slot"] = replace_slot
+    context["removed_avoid_colors"] = list(removed_avoid_colors)
+    context["exclude_item_keywords"] = list(exclude_item_keywords)
+    context["liked_colors"] = list(liked_colors)
     return context

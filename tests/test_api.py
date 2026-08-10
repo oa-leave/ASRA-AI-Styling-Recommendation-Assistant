@@ -250,6 +250,21 @@ def test_register_login_wardrobe_profile_and_feedback():
     )
     assert feedback_response.status_code == 201
 
+    dislike_response = client.post(
+        "/feedback/",
+        headers=headers,
+        json={
+            "feedback_type": "dislike",
+            "outfit_score": 100,
+            "outfit_snapshot": {"颜色": "蓝色"},
+            "reason": ["不喜欢"],
+        },
+    )
+    assert dislike_response.status_code == 201
+
+    memory_check = client.get("/memory/", headers=headers)
+    assert "蓝色" in memory_check.json()["profile"]["avoid_colors"]
+
     feedback_list = client.get("/feedback/", headers=headers)
     assert feedback_list.status_code == 200
-    assert len(feedback_list.json()) == 1
+    assert len(feedback_list.json()) == 2

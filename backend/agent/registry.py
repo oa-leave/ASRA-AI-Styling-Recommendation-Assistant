@@ -50,6 +50,16 @@ def knowledge_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
         colors=profile.get("favorite_colors") or [],
         tags=profile.get("style_tags") or [],
     )
+    avoid_colors = set(profile.get("avoid_colors") or [])
+    avoid_colors.update(
+        (state.get("conversation_context") or {}).get("avoid_colors") or []
+    )
+    if avoid_colors:
+        rules = [
+            rule
+            for rule in rules
+            if not (avoid_colors & set(rule.get("tags", [])))
+        ]
     return {
         "knowledge_rules": rules,
         "knowledge_text": build_knowledge_text(rules),

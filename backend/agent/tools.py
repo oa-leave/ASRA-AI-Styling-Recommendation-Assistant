@@ -140,10 +140,11 @@ def get_weather(city: str, use_api: Optional[bool] = None) -> Dict[str, Any]:
 
 
 def analyze_scene(occasion: str) -> Dict[str, Any]:
-    return SCENE_MAP.get(
+    scene = SCENE_MAP.get(
         occasion,
         {"style": "休闲", "occasion_tags": ["日常"]},
     )
+    return dict(scene)
 
 
 def profile_to_dict(profile) -> Optional[Dict[str, Any]]:

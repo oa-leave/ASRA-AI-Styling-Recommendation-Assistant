@@ -1,3 +1,4 @@
+import json
 from itertools import product
 
 from backend.services.recommendation_config import (
@@ -22,7 +23,7 @@ def normalize_colors(colors):
     if not colors:
         return []
     if isinstance(colors, list):
-        return normalize_color_tags(colors)
+        colors = " ".join(str(color) for color in colors)
 
     text = str(colors).lower()
     matches = []
@@ -33,7 +34,7 @@ def normalize_colors(colors):
                 matches.append((index, name))
                 break
     matches.sort(key=lambda item: item[0])
-    return [name for _, name in matches]
+    return list(dict.fromkeys(name for _, name in matches))
 
 
 def normalize_tags(tags):
@@ -42,6 +43,12 @@ def normalize_tags(tags):
     if isinstance(tags, list):
         return [str(tag).strip() for tag in tags if str(tag).strip()]
     if isinstance(tags, str):
+        try:
+            value = json.loads(tags)
+            if isinstance(value, list):
+                return [str(tag).strip() for tag in value if str(tag).strip()]
+        except (ValueError, TypeError):
+            pass
         return [tag.strip() for tag in tags.split(",") if tag.strip()]
     return []
 
@@ -50,7 +57,8 @@ def color_match(clothes_color, favorite_colors):
     if not clothes_color or not favorite_colors:
         return False
     clothes_group = _color_group_name(clothes_color)
-    return clothes_group in favorite_colors
+    favorite_groups = normalize_colors(favorite_colors)
+    return clothes_group in favorite_groups
 
 
 def _color_group_name(color):
@@ -119,6 +127,11 @@ def calculate_clothes_score(clothes, profile, collect_filtered=False):
         item_fit_tags = normalize_tags(getattr(item, "fit_tags", None))
         item_occasion_tags = normalize_tags(getattr(item, "occasion_tags", None))
 
+        item_color_group = _color_group_name(item.color)
+        if item_color_group in avoid_colors:
+            filtered_reasons.append(f"用户不喜欢{item.color}")
+            continue
+
         if user_style and item.style == user_style:
             score += SCORE_RULES["style"]
             reasons.append("符合用户喜欢风格")
@@ -140,11 +153,6 @@ def calculate_clothes_score(clothes, profile, collect_filtered=False):
         if color_score > 0:
             score += color_score * 10
             reasons.append("匹配用户颜色标签")
-
-        item_color_group = _color_group_name(item.color)
-        if item_color_group in avoid_colors:
-            filtered_reasons.append("用户不喜欢该颜色")
-            continue
 
         occasion_score = tag_match(item_occasion_tags, user_occasions)
         if occasion_score > 0:
@@ -274,7 +282,15 @@ def generate_summary(outfit, reasons, profile=None):
     if "整体风格统一" in reasons:
         summary.append("整体风格统一")
     if "颜色搭配协调" in reasons:
-        summary.append("黑白灰配色降低搭配风险")
+        colors = list(dict.fromkeys(
+            item.get("color")
+            for item in outfit.values()
+            if item.get("color")
+        ))
+        if colors:
+            summary.append(f"{'/'.join(colors)}配色协调")
+        else:
+            summary.append("配色协调")
     if profile and getattr(profile, "season", None):
         summary.append(f"适合{profile.season}")
     if profile and getattr(profile, "style", None):

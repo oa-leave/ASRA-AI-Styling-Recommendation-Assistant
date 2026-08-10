@@ -1,16 +1,62 @@
-from typing import List
+from typing import Any, List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from backend.schemas.feedback import FeedbackCreate, FeedbackResponse
+from backend.services.recommendation_config import COLOR_GROUPS, STYLES
 from backend.utils.database import get_database
 from backend.utils.dependencies import get_current_user
 from backend.utils.events import record_event
-from database.models import RecommendationFeedback, User
+from database.models import RecommendationFeedback, User, UserProfile
 
 
 router = APIRouter(prefix="/feedback", tags=["推荐反馈"])
+
+
+def _collect_text_values(value: Any) -> List[str]:
+    texts = []
+    if isinstance(value, str):
+        texts.append(value)
+    elif isinstance(value, dict):
+        for item in value.values():
+            texts.extend(_collect_text_values(item))
+    elif isinstance(value, list):
+        for item in value:
+            texts.extend(_collect_text_values(item))
+    return texts
+
+
+def _update_profile_from_feedback(
+    db: Session,
+    user_id: int,
+    payload: FeedbackCreate,
+) -> None:
+    profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == user_id)
+        .first()
+    )
+    if profile is None:
+        return
+
+    texts = _collect_text_values(payload.outfit_snapshot)
+    if payload.feedback_type == "dislike":
+        avoid_colors = set(profile.avoid_colors or [])
+        for text in texts:
+            for color in COLOR_GROUPS:
+                if color in text:
+                    avoid_colors.add(color)
+        profile.avoid_colors = list(avoid_colors)
+        db.commit()
+    elif payload.feedback_type == "like":
+        style_tags = set(profile.style_tags or [])
+        for text in texts:
+            for style in STYLES:
+                if style in text:
+                    style_tags.add(style)
+        profile.style_tags = list(style_tags)
+        db.commit()
 
 
 @router.post("/", response_model=FeedbackResponse, status_code=201)
@@ -29,6 +75,7 @@ def create_feedback(
     db.add(feedback)
     db.commit()
     db.refresh(feedback)
+    _update_profile_from_feedback(db, current_user.id, payload)
     record_event(
         db,
         current_user.id,

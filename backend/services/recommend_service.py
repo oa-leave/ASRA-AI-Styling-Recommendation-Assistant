@@ -9,7 +9,14 @@ from backend.services.recommendation_engine import (
     calculate_clothes_score,
     generate_summary,
 )
-from backend.services.recommendation_config import MEMORY_BONUS
+from backend.services.recommendation_config import (
+    FORMAL_FALLBACK_BONUS,
+    FORMAL_FALLBACK_PENALTY,
+    MEMORY_BONUS,
+    RECENT_LIKED_COLOR_BONUS,
+    SCENE_SCORING,
+)
+from backend.services.explanation_filter import filter_summary
 from database.models import RecommendationHistory, User, UserProfile, Wardrobe
 
 
@@ -43,6 +50,89 @@ def _build_items(outfit: Dict[str, Any]) -> List[Dict[str, Any]]:
         }
         for slot, item in outfit.items()
     ]
+
+
+def _filter_excluded_keywords(
+    scored: List[Dict[str, Any]],
+    keywords: Optional[List[str]],
+) -> List[Dict[str, Any]]:
+    if not keywords:
+        return scored
+    return [
+        item
+        for item in scored
+        if not any(
+            keyword in item.get("name", "") or keyword in item.get("category", "")
+            for keyword in keywords
+        )
+    ]
+
+
+def _apply_formal_fallback_adjustments(
+    scored: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    for item in scored:
+        text = (
+            f"{item.get('name', '')} "
+            f"{item.get('category', '')} "
+            f"{' '.join(item.get('fit_tags', []))}"
+        )
+        for keyword, bonus in FORMAL_FALLBACK_BONUS.items():
+            if keyword in text:
+                item["score"] += bonus
+        for keyword, penalty in FORMAL_FALLBACK_PENALTY.items():
+            if keyword in text:
+                item["score"] -= penalty
+    return scored
+
+
+def _apply_scene_scoring(
+    scored: List[Dict[str, Any]],
+    scene: Optional[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if not scene:
+        return scored
+
+    rules = None
+    for occasion in scene.get("occasion_tags") or []:
+        if occasion in SCENE_SCORING:
+            rules = SCENE_SCORING[occasion]
+            break
+    if not rules:
+        return scored
+
+    for item in scored:
+        text = (
+            f"{item.get('name', '')} "
+            f"{item.get('category', '')} "
+            f"{' '.join(item.get('fit_tags', []))}"
+        )
+        if any(keyword in text for keyword in rules["fit_keywords"]):
+            item["score"] += rules["fit_bonus"]
+        if item.get("color") in rules["soft_colors"]:
+            item["score"] += rules["soft_color_bonus"]
+        if any(keyword in text for keyword in rules["shoes_keywords"]):
+            item["score"] += rules["shoes_bonus"]
+        if any(keyword in text for keyword in rules["sporty_keywords"]):
+            item["score"] -= rules["sporty_penalty"]
+    return scored
+
+
+def _apply_recent_liked_color_bonus(
+    scored: List[Dict[str, Any]],
+    conversation_context: Optional[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if not conversation_context:
+        return scored
+    liked_groups = {
+        _color_group_name(color)
+        for color in (conversation_context.get("liked_colors") or [])
+        if _color_group_name(color)
+    }
+    for item in scored:
+        if _color_group_name(item.get("color")) in liked_groups:
+            item["score"] += RECENT_LIKED_COLOR_BONUS
+    return scored
 
 
 def _collect_names(snapshot: Any) -> List[str]:
@@ -125,10 +215,22 @@ def generate_recommendation(
     )
 
     profile_data = _profile_to_dict(profile) or {}
+    avoid_colors = set(profile_data.get("avoid_colors") or [])
     if conversation_context:
-        avoid_colors = set(profile_data.get("avoid_colors") or [])
         avoid_colors.update(conversation_context.get("avoid_colors") or [])
         profile_data["avoid_colors"] = list(avoid_colors)
+
+    favorite_colors = set(profile_data.get("favorite_colors") or [])
+    liked_colors = (
+        conversation_context.get("liked_colors")
+        if conversation_context
+        else []
+    )
+    favorite_colors.update(liked_colors)
+    favorite_colors.difference_update(avoid_colors)
+    profile_data["favorite_colors"] = list(favorite_colors)
+    if profile_data.get("favorite_color") in avoid_colors:
+        profile_data["favorite_color"] = None
 
     context_data = {}
     if scene and scene.get("style"):
@@ -156,43 +258,99 @@ def generate_recommendation(
         collect_filtered=True,
     )
     scored = _apply_memory_adjustments(scored, memory)
-    outfit_results = build_top_outfits(
+    scored = _filter_excluded_keywords(
         scored,
-        profile_obj,
-        top_n=top_n,
-        slot_style=conversation_context.get("slot_style")
-        if conversation_context
-        else None,
-        force_slot=conversation_context.get("force_slot")
-        if conversation_context
-        else None,
-        remove_slot=conversation_context.get("remove_slot")
-        if conversation_context
-        else None,
-        replace_slot=conversation_context.get("replace_slot")
+        conversation_context.get("exclude_item_keywords")
         if conversation_context
         else None,
     )
-    best = outfit_results[0] if outfit_results else {
-        "outfit": {},
-        "score": 0,
-        "reason": [],
-    }
+    if conversation_context:
+        scored = _apply_recent_liked_color_bonus(
+            scored,
+            conversation_context,
+        )
 
-    items = _build_items(best["outfit"])
-    summary = generate_summary(best["outfit"], best["reason"], summary_profile)
+    requested_style = context_data.get("style")
+    style_missing = bool(requested_style) and not any(
+        item.get("style") == requested_style
+        for item in scored
+    )
+    if style_missing and requested_style == "商务":
+        scored = _apply_formal_fallback_adjustments(scored)
+    if scene and scene.get("occasion_tags"):
+        scored = _apply_scene_scoring(scored, scene)
+    no_matching_items = not scored
 
-    top_outfits = []
-    for outfit_result in outfit_results:
-        top_outfits.append({
-            "outfit_score": outfit_result["score"],
-            "items": _build_items(outfit_result["outfit"]),
-            "summary": generate_summary(
-                outfit_result["outfit"],
-                outfit_result["reason"],
-                summary_profile,
-            ),
-        })
+    if no_matching_items:
+        message = (
+            f"缺少{requested_style}风格衣物"
+            if requested_style
+            else "没有符合条件的衣物"
+        )
+        outfit_results = []
+        best = {
+            "outfit": {},
+            "score": 0,
+            "reason": [message],
+        }
+        items = []
+        summary = [message]
+        top_outfits = []
+    else:
+        outfit_results = build_top_outfits(
+            scored,
+            profile_obj,
+            top_n=top_n,
+            slot_style=conversation_context.get("slot_style")
+            if conversation_context
+            else None,
+            force_slot=conversation_context.get("force_slot")
+            if conversation_context
+            else None,
+            remove_slot=conversation_context.get("remove_slot")
+            if conversation_context
+            else None,
+            replace_slot=conversation_context.get("replace_slot")
+            if conversation_context
+            else None,
+        )
+        best = outfit_results[0] if outfit_results else {
+            "outfit": {},
+            "score": 0,
+            "reason": [],
+        }
+
+        items = _build_items(best["outfit"])
+        summary = generate_summary(best["outfit"], best["reason"], summary_profile)
+        if style_missing:
+            summary.insert(
+                0,
+                f"当前衣柜缺少{requested_style}风格单品，"
+                "使用简洁配色打造偏正式休闲风",
+            )
+        summary = filter_summary(summary, profile_data.get("avoid_colors"))
+
+        top_outfits = []
+        for outfit_result in outfit_results:
+            outfit_summary = generate_summary(
+                    outfit_result["outfit"],
+                    outfit_result["reason"],
+                    summary_profile,
+                )
+            if style_missing:
+                outfit_summary.insert(
+                    0,
+                    f"当前衣柜缺少{requested_style}风格单品，"
+                    "使用简洁配色打造偏正式休闲风",
+                )
+            top_outfits.append({
+                "outfit_score": outfit_result["score"],
+                "items": _build_items(outfit_result["outfit"]),
+                "summary": filter_summary(
+                    outfit_summary,
+                    profile_data.get("avoid_colors"),
+                ),
+            })
 
     context = dict(history_context or {"source": "recommend"})
     if weather is not None:

@@ -58,9 +58,14 @@ def test_deterministic_explanation():
 
 def test_build_memory_text():
     text = build_memory_text({
-        "profile": {"style": "休闲", "favorite_color": "白色"},
+        "profile": {
+            "style": "休闲",
+            "favorite_color": "白色",
+            "favorite_colors": ["灰色", "白色", "黑色"],
+        },
         "recent_history": [{"id": 1}],
         "feedback_summary": {"like_count": 2, "dislike_count": 1},
     })
     assert "休闲" in text
+    assert "灰色" in text
     assert "最近有1次推荐记录" in text

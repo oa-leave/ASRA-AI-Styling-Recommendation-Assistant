@@ -101,6 +101,23 @@ def test_agent_full_flow():
     assert scene_agent_response.json()["scene"]["style"] == "日系"
     assert scene_agent_response.json()["scene"]["occasion_tags"] == ["约会"]
 
+    business_response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={
+            "query": "今天通勤穿什么",
+            "city": "沈阳",
+            "occasion": "通勤",
+            "style": "商务",
+        },
+    )
+    assert business_response.status_code == 200
+    assert len(business_response.json()["recommendation"]["items"]) >= 1
+    assert any(
+        "偏正式休闲风" in item
+        for item in business_response.json()["recommendation"]["summary"]
+    )
+
     first_items = data["recommendation"]["items"]
     liked_item = next(item for item in first_items if item["name"] == "白色T恤")
     first_score = liked_item["score"]
