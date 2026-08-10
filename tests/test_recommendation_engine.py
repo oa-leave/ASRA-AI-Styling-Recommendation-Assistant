@@ -384,6 +384,126 @@ def test_onepiece_category_maps_to_dress_slot():
     assert "裤子" not in result["outfit"]
 
 
+def test_slot_style_filter():
+    clothes = [
+        {
+            "id": 1,
+            "name": "黑色休闲裤",
+            "category": "裤子",
+            "color": "黑色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+        {
+            "id": 2,
+            "name": "黑色西裤",
+            "category": "裤子",
+            "color": "黑色",
+            "style": "商务",
+            "season": "夏季",
+            "score": 80,
+            "reason": ["风格"],
+        },
+    ]
+
+    results = build_top_outfits(
+        clothes,
+        top_n=3,
+        slot_style={"裤子": "商务"},
+    )
+    assert results[0]["outfit"]["裤子"]["style"] == "商务"
+
+
+def test_force_slot_missing_returns_empty():
+    clothes = [
+        {
+            "id": 1,
+            "name": "白色T恤",
+            "category": "上衣",
+            "color": "白色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        }
+    ]
+
+    results = build_top_outfits(
+        clothes,
+        top_n=3,
+        force_slot=["外套"],
+    )
+    assert results[0]["outfit"] == {}
+    assert results[0]["reason"] == ["缺少指定搭配"]
+
+
+def test_remove_slot():
+    clothes = [
+        {
+            "id": 1,
+            "name": "白色T恤",
+            "category": "上衣",
+            "color": "白色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+        {
+            "id": 2,
+            "name": "黑色休闲裤",
+            "category": "裤子",
+            "color": "黑色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+        {
+            "id": 3,
+            "name": "蓝色外套",
+            "category": "外套",
+            "color": "蓝色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        },
+    ]
+
+    results = build_top_outfits(
+        clothes,
+        top_n=3,
+        remove_slot=["外套"],
+    )
+    assert "外套" not in results[0]["outfit"]
+
+
+def test_replace_slot():
+    clothes = [
+        {
+            "id": 1,
+            "name": "黑色西裤",
+            "category": "裤子",
+            "color": "黑色",
+            "style": "商务",
+            "season": "夏季",
+            "score": 90,
+            "reason": ["风格"],
+        }
+    ]
+
+    results = build_top_outfits(
+        clothes,
+        top_n=3,
+        replace_slot={"裤子": "裙子"},
+    )
+    assert "裙子" in results[0]["outfit"]
+    assert "裤子" not in results[0]["outfit"]
+
+
 def test_core_outfit_bonus():
     outfit = {
         "上衣": {

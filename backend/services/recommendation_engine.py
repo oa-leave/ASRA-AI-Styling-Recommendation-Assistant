@@ -285,13 +285,32 @@ def generate_summary(outfit, reasons, profile=None):
     return summary
 
 
-def build_top_outfits(clothes, profile=None, top_n=3):
+def build_top_outfits(
+    clothes,
+    profile=None,
+    top_n=3,
+    slot_style=None,
+    force_slot=None,
+    remove_slot=None,
+    replace_slot=None,
+):
     categories = {slot: [] for slot in OUTFIT_SLOTS}
+    remove_slots = set(remove_slot or [])
+    replace_map = replace_slot or {}
 
     for item in clothes:
         category = CATEGORY_TO_SLOT.get(item["category"], item["category"])
-        if category in categories:
+        category = replace_map.get(category, category)
+        if category in categories and category not in remove_slots:
             categories[category].append(item)
+
+    for slot, style in (slot_style or {}).items():
+        if slot in categories:
+            categories[slot] = [
+                item
+                for item in categories[slot]
+                if item.get("style") == style
+            ]
 
     for key in OUTFIT_SLOTS:
         if categories[key]:
@@ -299,6 +318,13 @@ def build_top_outfits(clothes, profile=None, top_n=3):
             categories[key] = categories[key][:MAX_OUTFIT_CANDIDATES]
 
     available_slots = filter_available_slots(categories, profile)
+    required_slots = set(force_slot or [])
+    if required_slots and not required_slots.issubset(set(available_slots)):
+        return [{
+            "outfit": {},
+            "score": 0,
+            "reason": ["缺少指定搭配"],
+        }]
     if not available_slots:
         return [{
             "outfit": {},

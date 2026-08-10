@@ -30,7 +30,11 @@ def scene_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
 
 def memory_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
     """记忆工具：读取用户画像、历史和反馈。"""
-    return {"memory": get_user_memory(db, state["user_id"])}
+    memory = get_user_memory(db, state["user_id"])
+    return {
+        "memory": memory,
+        "profile": memory.get("profile"),
+    }
 
 
 def knowledge_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:

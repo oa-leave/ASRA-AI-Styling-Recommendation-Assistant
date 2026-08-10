@@ -156,7 +156,23 @@ def generate_recommendation(
         collect_filtered=True,
     )
     scored = _apply_memory_adjustments(scored, memory)
-    outfit_results = build_top_outfits(scored, profile_obj, top_n=top_n)
+    outfit_results = build_top_outfits(
+        scored,
+        profile_obj,
+        top_n=top_n,
+        slot_style=conversation_context.get("slot_style")
+        if conversation_context
+        else None,
+        force_slot=conversation_context.get("force_slot")
+        if conversation_context
+        else None,
+        remove_slot=conversation_context.get("remove_slot")
+        if conversation_context
+        else None,
+        replace_slot=conversation_context.get("replace_slot")
+        if conversation_context
+        else None,
+    )
     best = outfit_results[0] if outfit_results else {
         "outfit": {},
         "score": 0,

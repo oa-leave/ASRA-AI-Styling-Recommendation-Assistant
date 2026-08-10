@@ -6,6 +6,7 @@ from typing import Any, Dict
 from PIL import Image
 
 from backend.core.config import BASE_DIR
+from backend.services.vision_service import extract_vision_result
 
 
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -53,7 +54,7 @@ def extract_dominant_color(image_path: Path) -> str:
     """裁剪中央区域后统计主色。"""
     image = _load_center_image(image_path)
     image.thumbnail((100, 100))
-    pixels = list(image.get_flattened_data())
+    pixels = list(image.getdata())
 
     buckets = {}
     for pixel in pixels:
@@ -80,7 +81,7 @@ def extract_dominant_colors(image_path: Path, top_n: int = 3) -> list:
     """返回中央主体区域占比最高的几个颜色标签。"""
     image = _load_center_image(image_path)
     image.thumbnail((100, 100))
-    pixels = list(image.get_flattened_data())
+    pixels = list(image.getdata())
 
     buckets = {}
     for pixel in pixels:
@@ -129,18 +130,7 @@ def save_upload_image(content: bytes, original_name: str) -> Path:
 
 def analyze_image(file_path: Path, original_name: str) -> Dict[str, Any]:
     """识别图片并生成待确认的衣柜数据。"""
-    colors = extract_dominant_colors(file_path)
-    color = colors[0] if colors else "未知"
-    return {
-        "name": "识别衣物",
-        "category": "上衣",
-        "color": color,
-        "season": "四季",
-        "style": "休闲",
-        "color_tags": colors,
-        "style_tags": ["休闲"],
-        "fit_tags": ["基础款"],
-        "occasion_tags": ["日常"],
-        "image_path": str(file_path),
-        "recognition_status": "pending",
-    }
+    candidate = extract_vision_result(file_path, original_name)
+    candidate["image_path"] = str(file_path)
+    candidate["recognition_status"] = "pending"
+    return candidate
