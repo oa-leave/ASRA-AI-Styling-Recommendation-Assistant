@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
 
 from database.connection import Base
@@ -40,6 +40,11 @@ class User(Base):
     )
     conversations = relationship(
         "ConversationSession",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    refresh_tokens = relationship(
+        "RefreshToken",
         back_populates="user",
         cascade="all, delete-orphan",
     )
@@ -100,6 +105,28 @@ class UserProfile(Base):
     season = Column(String(50))
 
     user = relationship("User", back_populates="profile")
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="refresh_tokens")
+
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(32), nullable=False, index=True)
+    succeeded = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class EventLog(Base):

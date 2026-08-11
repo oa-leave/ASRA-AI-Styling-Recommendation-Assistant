@@ -244,19 +244,20 @@ def calculate_outfit_score(outfit, profile=None):
     return score, reasons
 
 
-def filter_available_slots(categories, profile):
+def filter_available_slots(categories, profile, force_slot=None):
     season = None
     if profile:
         season = getattr(profile, "season", None)
 
     season_rules = SEASON_CATEGORY_RULES.get(season, {})
     avoid_categories = season_rules.get("avoid_categories", [])
+    forced_slots = set(force_slot or [])
 
     slots = []
     for key in OUTFIT_SLOTS:
         if not categories[key]:
             continue
-        if key in avoid_categories:
+        if key in avoid_categories and key not in forced_slots:
             continue
         slots.append(key)
 
@@ -333,7 +334,7 @@ def build_top_outfits(
             categories[key].sort(key=lambda x: x["score"], reverse=True)
             categories[key] = categories[key][:MAX_OUTFIT_CANDIDATES]
 
-    available_slots = filter_available_slots(categories, profile)
+    available_slots = filter_available_slots(categories, profile, force_slot)
     required_slots = set(force_slot or [])
     if required_slots and not required_slots.issubset(set(available_slots)):
         return [{

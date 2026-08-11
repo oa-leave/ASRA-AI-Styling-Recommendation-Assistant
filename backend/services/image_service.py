@@ -1,5 +1,6 @@
 """衣物图片识别服务：先提取主色，后续可接入 CLIP 等模型。"""
 import uuid
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict
 
@@ -25,6 +26,15 @@ RGB_COLOR_MAP = {
     "棕色": (139, 69, 19),
     "米色": (245, 245, 220),
 }
+
+
+def validate_image_content(content: bytes) -> None:
+    """Raise ValueError when the uploaded bytes are not a readable image."""
+    try:
+        with Image.open(BytesIO(content)) as image:
+            image.verify()
+    except Exception as exc:
+        raise ValueError("图片文件无效") from exc
 
 
 def _distance(color_a: tuple, color_b: tuple) -> float:
@@ -54,7 +64,7 @@ def extract_dominant_color(image_path: Path) -> str:
     """裁剪中央区域后统计主色。"""
     image = _load_center_image(image_path)
     image.thumbnail((100, 100))
-    pixels = list(image.getdata())
+    pixels = list(image.get_flattened_data())
 
     buckets = {}
     for pixel in pixels:
@@ -81,7 +91,7 @@ def extract_dominant_colors(image_path: Path, top_n: int = 3) -> list:
     """返回中央主体区域占比最高的几个颜色标签。"""
     image = _load_center_image(image_path)
     image.thumbnail((100, 100))
-    pixels = list(image.getdata())
+    pixels = list(image.get_flattened_data())
 
     buckets = {}
     for pixel in pixels:

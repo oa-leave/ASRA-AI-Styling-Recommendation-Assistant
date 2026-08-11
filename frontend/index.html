@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASRA</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="auth-view" class="auth-view hidden">
+    <div class="auth-shell">
+      <div class="auth-intro">
+        <div class="auth-brand">
+          <span class="brand-mark">A</span>
+          <div>
+            <h1>ASRA</h1>
+            <p>AI Styling Recommendation Assistant</p>
+          </div>
+        </div>
+        <div class="auth-strip">
+          <span>衣橱</span>
+          <span>画像</span>
+          <span>天气</span>
+          <span>场景</span>
+          <span>推荐</span>
+        </div>
+      </div>
+      <div class="auth-card">
+        <div class="segmented">
+          <button type="button" class="segment active" data-auth-tab="login">登录</button>
+          <button type="button" class="segment" data-auth-tab="register">注册</button>
+        </div>
+        <form id="login-form" class="auth-form">
+          <label>
+            <span>用户名</span>
+            <input name="username" autocomplete="username" required>
+          </label>
+          <label>
+            <span>密码</span>
+            <input name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button type="submit" class="primary wide">
+            <i data-lucide="log-in"></i>
+            <span>进入 ASRA</span>
+          </button>
+        </form>
+        <form id="register-form" class="auth-form hidden">
+          <label>
+            <span>邮箱</span>
+            <input name="email" type="email" autocomplete="email" required>
+          </label>
+          <label>
+            <span>用户名</span>
+            <input name="username" minlength="3" maxlength="32" autocomplete="username" required>
+          </label>
+          <label>
+            <span>密码</span>
+            <input name="password" type="password" minlength="8" autocomplete="new-password" required>
+          </label>
+          <button type="submit" class="primary wide">
+            <i data-lucide="user-plus"></i>
+            <span>创建账号</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-view" class="app-view hidden">
+    <aside class="sidebar">
+      <div class="brand-row">
+        <span class="brand-mark">A</span>
+        <div>
+          <strong>ASRA</strong>
+          <span>穿搭助手</span>
+        </div>
+      </div>
+      <nav class="nav-list" aria-label="主导航">
+        <button type="button" class="nav-item active" data-view="chat">
+          <i data-lucide="message-circle"></i>
+          <span>穿搭助手</span>
+        </button>
+        <button type="button" class="nav-item" data-view="recommend">
+          <i data-lucide="sparkles"></i>
+          <span>智能推荐</span>
+        </button>
+        <button type="button" class="nav-item" data-view="wardrobe">
+          <i data-lucide="shirt"></i>
+          <span>数字衣柜</span>
+        </button>
+        <button type="button" class="nav-item" data-view="profile">
+          <i data-lucide="user-round"></i>
+          <span>用户画像</span>
+        </button>
+        <button type="button" class="nav-item" data-view="history">
+          <i data-lucide="clock-3"></i>
+          <span>推荐历史</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="sidebar-user" class="sidebar-user"></div>
+        <button type="button" id="logout-btn" class="icon-text-btn subtle full">
+          <i data-lucide="log-out"></i>
+          <span>登出</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="view-title">穿搭助手</h2>
+          <p id="view-subtitle">根据天气、场景和偏好生成穿搭方案</p>
+        </div>
+        <button type="button" id="refresh-btn" class="icon-text-btn subtle">
+          <i data-lucide="refresh-cw"></i>
+          <span>刷新</span>
+        </button>
+      </header>
+
+      <section id="view-chat" class="view active">
+        <div class="chat-grid">
+          <div class="panel chat-panel">
+            <div id="chat-messages" class="chat-messages"></div>
+            <form id="chat-form" class="chat-form">
+              <input id="chat-input" autocomplete="off" placeholder="例如：明天上海约会穿什么？">
+              <button type="submit" class="primary">
+                <i data-lucide="send"></i>
+                <span>发送</span>
+              </button>
+            </form>
+          </div>
+          <div class="panel context-panel">
+            <div class="panel-head">
+              <i data-lucide="sliders-horizontal"></i>
+              <span>本次上下文</span>
+            </div>
+            <div id="chat-context" class="context-body"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-recommend" class="view">
+        <div class="panel command-panel">
+          <div>
+            <h3>生成穿搭推荐</h3>
+            <p>结合画像、衣橱、天气和场景生成 Top N 方案</p>
+          </div>
+          <button type="button" id="recommend-btn" class="primary">
+            <i data-lucide="wand-2"></i>
+            <span>生成推荐</span>
+          </button>
+        </div>
+        <div id="recommend-results" class="cards-grid"></div>
+      </section>
+
+      <section id="view-wardrobe" class="view">
+        <div class="wardrobe-grid">
+          <div class="panel form-panel">
+            <div class="panel-head">
+              <i data-lucide="plus-circle"></i>
+              <span>添加衣物</span>
+            </div>
+            <form id="wardrobe-add-form" class="form-grid compact">
+              <label><span>名称</span><input name="name" required></label>
+              <label><span>分类</span><input name="category" list="category-list" required></label>
+              <datalist id="category-list">
+                <option value="上衣"></option><option value="裤子"></option>
+                <option value="裙子"></option><option value="连衣裙"></option>
+                <option value="外套"></option><option value="鞋子"></option>
+                <option value="配饰"></option>
+              </datalist>
+              <label><span>颜色</span><input name="color" required></label>
+              <label><span>季节</span><input name="season" list="season-list" required></label>
+              <datalist id="season-list">
+                <option value="春季"></option><option value="夏季"></option>
+                <option value="秋季"></option><option value="冬季"></option>
+                <option value="四季"></option>
+              </datalist>
+              <label><span>风格</span><input name="style" list="style-list" required></label>
+              <datalist id="style-list">
+                <option value="休闲"></option><option value="商务"></option>
+                <option value="运动"></option><option value="日系"></option>
+                <option value="极简"></option><option value="中式"></option>
+              </datalist>
+              <label class="span-2"><span>标签</span><input name="tags" placeholder="白色, 基础款, 通勤"></label>
+              <button type="submit" class="primary span-2">
+                <i data-lucide="shirt"></i>
+                <span>加入衣柜</span>
+              </button>
+            </form>
+            <form id="wardrobe-upload-form" class="upload-form">
+              <input id="wardrobe-file" type="file" accept="image/*" required>
+              <button type="submit" class="secondary">
+                <i data-lucide="scan-line"></i>
+                <span>上传识别</span>
+              </button>
+            </form>
+          </div>
+          <div class="panel list-panel">
+            <div class="panel-head">
+              <i data-lucide="archive"></i>
+              <span>我的衣柜</span>
+            </div>
+            <div id="wardrobe-list" class="wardrobe-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-profile" class="view">
+        <div class="panel profile-panel">
+          <div class="panel-head">
+            <i data-lucide="user-round"></i>
+            <span>用户画像</span>
+          </div>
+          <form id="profile-form" class="form-grid">
+            <label><span>风格</span><input name="style" list="style-list" required></label>
+            <label><span>偏好颜色</span><input name="favorite_color" required></label>
+            <label><span>体型</span><input name="body_type" required></label>
+            <label><span>季节</span><input name="season" list="season-list" required></label>
+            <label><span>喜欢颜色</span><input name="favorite_colors" placeholder="白色, 黑色"></label>
+            <label><span>风格标签</span><input name="style_tags" placeholder="休闲, 极简"></label>
+            <label><span>版型标签</span><input name="fit_tags" placeholder="宽松, 修身"></label>
+            <label><span>回避颜色</span><input name="avoid_colors" placeholder="红色, 荧光色"></label>
+            <label class="span-2"><span>适用场景</span><input name="occasion_preferences" placeholder="通勤, 约会, 运动"></label>
+            <button type="submit" id="profile-submit" class="primary span-2">
+              <i data-lucide="save"></i>
+              <span>保存画像</span>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section id="view-history" class="view">
+        <div class="panel history-summary-panel">
+          <div class="panel-head">
+            <i data-lucide="brain"></i>
+            <span>用户记忆</span>
+          </div>
+          <div id="memory-summary" class="memory-summary"></div>
+        </div>
+        <div id="history-list" class="cards-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+</body>
+</html>

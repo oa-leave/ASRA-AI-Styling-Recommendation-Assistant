@@ -1,14 +1,13 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.routers import agent, auth, chat, feedback, history, memory, profile, recommend, user, wardrobe
+from backend.core.config import BASE_DIR, settings
 from backend.utils.dependencies import get_current_user
 from database import models  # noqa: F401
-from database.connection import Base, engine
 from database.models import User
 
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="ASRA AI Styling Recommendation Assistant",
@@ -18,7 +17,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +33,14 @@ app.include_router(history.router)
 app.include_router(agent.router)
 app.include_router(memory.router)
 app.include_router(chat.router)
+
+frontend_dir = BASE_DIR / "frontend"
+if frontend_dir.exists():
+    app.mount("/app", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+
+uploads_dir = BASE_DIR / "uploads"
+if uploads_dir.exists():
+    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 
 @app.get("/")

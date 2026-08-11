@@ -13,7 +13,11 @@ from backend.schemas.wardrobe import (
 from backend.utils.database import get_database
 from backend.utils.dependencies import get_current_user
 from backend.utils.events import record_event
-from backend.services.image_service import analyze_image, save_upload_image
+from backend.services.image_service import (
+    analyze_image,
+    save_upload_image,
+    validate_image_content,
+)
 from database.models import ClothingRecognitionTask, User, Wardrobe
 
 
@@ -61,6 +65,10 @@ async def upload_clothes_image(
 ):
     original_name = file.filename or "clothes.jpg"
     content = await file.read()
+    try:
+        validate_image_content(content)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="图片文件无效")
     image_path = save_upload_image(content, original_name)
     candidate = analyze_image(image_path, original_name)
 
@@ -238,6 +246,10 @@ async def upload_and_confirm_image(
     """上传图片后自动识别并直接写入衣柜，无需手动复制结果。"""
     original_name = file.filename or "clothes.jpg"
     content = await file.read()
+    try:
+        validate_image_content(content)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="图片文件无效")
     image_path = save_upload_image(content, original_name)
     candidate = analyze_image(image_path, original_name)
 
@@ -323,17 +335,9 @@ def update_clothes(
     if old_clothes.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权修改该衣物")
 
-    old_clothes.name = clothes.name
-    old_clothes.image_path = clothes.image_path
-    old_clothes.recognition_status = clothes.recognition_status
-    old_clothes.category = clothes.category
-    old_clothes.color = clothes.color
-    old_clothes.season = clothes.season
-    old_clothes.style = clothes.style
-    old_clothes.color_tags = clothes.color_tags
-    old_clothes.style_tags = clothes.style_tags
-    old_clothes.fit_tags = clothes.fit_tags
-    old_clothes.occasion_tags = clothes.occasion_tags
+    updates = clothes.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(old_clothes, field, value)
     database.commit()
     database.refresh(old_clothes)
     record_event(

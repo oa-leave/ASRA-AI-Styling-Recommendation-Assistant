@@ -19,7 +19,7 @@ def _load_center_image(image_path: Path) -> Image.Image:
 def _dominant_rgb(image_path: Path) -> Tuple[int, int, int]:
     image = _load_center_image(image_path)
     image.thumbnail((100, 100))
-    pixels = list(image.getdata())
+    pixels = list(image.get_flattened_data())
 
     buckets = {}
     for pixel in pixels:

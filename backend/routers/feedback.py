@@ -47,6 +47,11 @@ def _update_profile_from_feedback(
             for color in COLOR_GROUPS:
                 if color in text:
                     avoid_colors.add(color)
+        profile.favorite_colors = [
+            color
+            for color in (profile.favorite_colors or [])
+            if color not in avoid_colors
+        ]
         profile.avoid_colors = list(avoid_colors)
         db.commit()
     elif payload.feedback_type == "like":
