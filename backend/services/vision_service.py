@@ -1,8 +1,97 @@
-"""视觉识别服务：先使用 HSV 颜色分类，后续可替换为 CLIP/云视觉 API。"""
+"""视觉识别服务：优先调用本地 OpenAI 兼容视觉模型，失败时回退到 HSV + 文件名规则。"""
+import base64
+import re
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+import requests
+import json5
 from PIL import Image
+
+from backend.core.config import settings
+from backend.services.recommendation_config import CATEGORIES, SEASONS, STYLES
+from backend.services.recommendation_engine import normalize_colors
+
+
+MODEL_CATEGORY_ALIASES = {
+    "上衣": "上衣",
+    "top": "上衣",
+    "shirt": "上衣",
+    "tee": "上衣",
+    "sweater": "上衣",
+    "cardigan": "上衣",
+    "t-shirt": "上衣",
+    "blouse": "上衣",
+    "sweater": "上衣",
+    "裤子": "裤子",
+    "pants": "裤子",
+    "trousers": "裤子",
+    "jeans": "裤子",
+    "shorts": "裤子",
+    "bottoms": "裤子",
+    "bottom": "裤子",
+    "裙子": "裙子",
+    "skirt": "裙子",
+    "dress": "连衣裙",
+    "连衣裙": "连衣裙",
+    "one-piece": "连衣裙",
+    "旗袍": "旗袍",
+    "cheongsam": "旗袍",
+    "汉服": "汉服",
+    "外套": "外套",
+    "jacket": "外套",
+    "coat": "外套",
+    "blazer": "外套",
+    "鞋子": "鞋子",
+    "shoes": "鞋子",
+    "shoe": "鞋子",
+    "sneakers": "鞋子",
+    "sneaker": "鞋子",
+    "footwear": "鞋子",
+    "sports shoes": "鞋子",
+    "boots": "鞋子",
+    "配饰": "配饰",
+    "accessory": "配饰",
+    "帽子": "帽子",
+    "hat": "帽子",
+    "包包": "包包",
+    "bag": "包包",
+    "内搭": "内搭",
+}
+
+MODEL_STYLE_ALIASES = {
+    "休闲": "休闲",
+    "casual": "休闲",
+    "商务": "商务",
+    "formal": "商务",
+    "business": "商务",
+    "运动": "运动",
+    "sport": "运动",
+    "sports": "运动",
+    "sporty": "运动",
+    "athletic": "运动",
+    "日系": "日系",
+    "japanese": "日系",
+    "极简": "极简",
+    "minimal": "极简",
+    "中式": "中式",
+    "chinese": "中式",
+}
+
+MODEL_SEASON_ALIASES = {
+    "春季": "春季",
+    "spring": "春季",
+    "夏季": "夏季",
+    "summer": "夏季",
+    "秋季": "秋季",
+    "autumn": "秋季",
+    "fall": "秋季",
+    "冬季": "冬季",
+    "winter": "冬季",
+    "四季": "四季",
+    "all-season": "四季",
+}
 
 
 def _load_center_image(image_path: Path) -> Image.Image:
@@ -149,7 +238,236 @@ def _infer_occasion(name: str) -> List[str]:
     return ["日常"]
 
 
-def extract_vision_result(
+def _as_list(value) -> List[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return []
+
+
+def _match_alias(value, aliases):
+    text = str(value or "").lower().strip()
+    for alias, canonical in aliases.items():
+        if alias in text:
+            return canonical
+    return None
+
+
+def _normalize_model_result(
+    data: Any,
+    original_name: str,
+) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        return None
+
+    category = _match_alias(data.get("category"), MODEL_CATEGORY_ALIASES)
+    if not category:
+        category = _infer_category(original_name)
+
+    color_groups = normalize_colors(str(data.get("color") or ""))
+    if not color_groups:
+        return None
+    color = color_groups[0]
+
+    style = _match_alias(data.get("style"), MODEL_STYLE_ALIASES)
+    if not style:
+        style = _infer_style(original_name)
+
+    season = _match_alias(data.get("season"), MODEL_SEASON_ALIASES) or "四季"
+
+    name = str(data.get("name") or "").strip() or "识别衣物"
+    color_tags = normalize_colors(_as_list(data.get("color_tags")))
+    if not color_tags:
+        color_tags = [color]
+    if color not in color_tags:
+        color_tags = [color, *color_tags]
+
+    style_tags = _as_list(data.get("style_tags")) or [style]
+    fit_tags = _as_list(data.get("fit_tags")) or [_infer_fit(original_name)]
+    occasion_tags = _as_list(data.get("occasion_tags"))
+    if not occasion_tags:
+        occasion_tags = _infer_occasion(original_name)
+
+    name_hint = (
+        f"{name} {' '.join(color_tags)} "
+        f"{' '.join(style_tags)} {' '.join(occasion_tags)}"
+    ).lower()
+    if any(word in name_hint for word in ("sneaker", "shoe", "shoes", "footwear", "boots")):
+        category = "鞋子"
+    elif any(word in name_hint for word in ("pants", "trousers", "jeans", "bottoms", "shorts")):
+        category = "裤子"
+    elif any(word in name_hint for word in ("dress", "one-piece")):
+        category = "连衣裙"
+    elif any(word in name_hint for word in ("skirt",)):
+        category = "裙子"
+    elif any(word in name_hint for word in ("jacket", "coat", "blazer")):
+        category = "外套"
+    elif any(word in name_hint for word in ("shirt", "top", "sweater", "cardigan")):
+        category = "上衣"
+
+    return {
+        "name": name,
+        "category": category,
+        "color": color,
+        "style": style,
+        "season": season,
+        "color_tags": color_tags,
+        "style_tags": style_tags,
+        "fit_tags": fit_tags,
+        "occasion_tags": occasion_tags,
+    }
+
+
+def _encode_image_for_model(image_path: Path) -> str:
+    image = Image.open(image_path).convert("RGB")
+    image.thumbnail((
+        settings.vision_max_image_size,
+        settings.vision_max_image_size,
+    ))
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG", quality=88)
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def _ollama_api_root() -> str:
+    url = settings.vision_base_url.rstrip("/")
+    if url.endswith("/v1"):
+        return url[:-3].rstrip("/")
+    return url
+
+
+def _parse_model_json(content):
+    if isinstance(content, dict):
+        return content
+    text = str(content or "").strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*```$", "", text)
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end > start:
+        text = text[start:end + 1]
+    return json5.loads(text)
+
+
+def _recognize_with_ollama_native(
+    image_path: Path,
+    original_name: str,
+) -> Dict[str, Any]:
+    encoded_image = _encode_image_for_model(image_path)
+    response = requests.post(
+        f"{_ollama_api_root()}/api/chat",
+        json={
+            "model": settings.vision_model,
+            "format": "json",
+            "stream": False,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是ASRA的衣物识别模型。"
+                        "只输出一个JSON对象，不要解释，不要Markdown。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "识别这张衣物图片。返回JSON，字段：name、category、"
+                        "color、style、season、color_tags、style_tags、"
+                        "fit_tags、occasion_tags。category必须是：内搭、上衣、"
+                        "裤子、裙子、连衣裙、旗袍、汉服、外套、鞋子、配饰、"
+                        "帽子、包包。"
+                    ),
+                    "images": [encoded_image],
+                },
+            ],
+            "options": {
+                "temperature": 0,
+                "num_predict": 500,
+            },
+        },
+        timeout=settings.vision_timeout,
+    )
+    response.raise_for_status()
+    content = response.json()["message"]["content"]
+    data = _parse_model_json(content)
+    return _normalize_model_result(data, original_name)
+
+
+def _recognize_with_openai_compatible(
+    image_path: Path,
+    original_name: str,
+) -> Dict[str, Any]:
+    encoded_image = _encode_image_for_model(image_path)
+    response = requests.post(
+        f"{settings.vision_base_url.rstrip('/')}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.vision_api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": settings.vision_model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是ASRA的衣物识别模型。只输出JSON，字段："
+                        "name、category、color、style、season、"
+                        "color_tags、style_tags、fit_tags、occasion_tags。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "识别这张衣物图片。"
+                                f"文件名：{original_name}。"
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{encoded_image}"
+                            },
+                        },
+                    ],
+                },
+            ],
+            "temperature": 0,
+            "max_tokens": 500,
+            "response_format": {"type": "json_object"},
+        },
+        timeout=settings.vision_timeout,
+    )
+    response.raise_for_status()
+    content = response.json()["choices"][0]["message"]["content"]
+    data = _parse_model_json(content)
+    return _normalize_model_result(data, original_name)
+
+
+def recognize_with_vision_model(
+    image_path: Path,
+    original_name: str = "",
+) -> Dict[str, Any]:
+    if not settings.vision_enabled:
+        return None
+
+    try:
+        result = _recognize_with_ollama_native(image_path, original_name)
+        if result:
+            return result
+    except Exception:
+        pass
+
+    try:
+        return _recognize_with_openai_compatible(image_path, original_name)
+    except Exception:
+        return None
+
+
+def _heuristic_vision_result(
     image_path: Path,
     original_name: str = "",
 ) -> Dict[str, Any]:
@@ -172,3 +490,14 @@ def extract_vision_result(
         "fit_tags": [_infer_fit(original_name)],
         "occasion_tags": _infer_occasion(original_name),
     }
+
+
+def extract_vision_result(
+    image_path: Path,
+    original_name: str = "",
+) -> Dict[str, Any]:
+    """优先使用真实视觉模型，失败时回退到启发式识别。"""
+    model_result = recognize_with_vision_model(image_path, original_name)
+    if model_result:
+        return model_result
+    return _heuristic_vision_result(image_path, original_name)

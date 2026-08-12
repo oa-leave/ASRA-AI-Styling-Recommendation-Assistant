@@ -29,6 +29,19 @@ class Settings:
         self.refresh_token_expire_days = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
         self.max_login_attempts = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
         self.login_lockout_minutes = int(os.getenv("LOGIN_LOCKOUT_MINUTES", "15"))
+        self.vision_enabled = os.getenv("VISION_ENABLED", "false").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        self.vision_base_url = os.getenv(
+            "VISION_BASE_URL",
+            "http://127.0.0.1:11434/v1",
+        )
+        self.vision_model = os.getenv("VISION_MODEL", "llava")
+        self.vision_api_key = os.getenv("VISION_API_KEY", "ollama")
+        self.vision_timeout = int(os.getenv("VISION_TIMEOUT", "30"))
+        self.vision_max_image_size = int(os.getenv("VISION_MAX_IMAGE_SIZE", "1024"))
         self.cors_origins = [
             origin.strip()
             for origin in os.getenv("CORS_ORIGINS", "").split(",")

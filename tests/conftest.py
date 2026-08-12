@@ -15,6 +15,7 @@ database_url = f"sqlite:///{Path(tmp_dir, 'test.db').as_posix()}"
 os.environ["DATABASE_URL"] = database_url
 os.environ["SECRET_KEY"] = "test-secret-key"
 os.environ["USE_WEATHER_API"] = "false"
+os.environ["VISION_ENABLED"] = "false"
 
 alembic_cfg = Config(str(BASE_DIR / "alembic.ini"))
 alembic_cfg.set_main_option("script_location", str(BASE_DIR / "migrations"))
