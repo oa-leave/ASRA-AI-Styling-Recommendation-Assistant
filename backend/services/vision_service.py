@@ -71,12 +71,69 @@ MODEL_STYLE_ALIASES = {
     "sports": "运动",
     "sporty": "运动",
     "athletic": "运动",
+    "sneakers": "运动",
+    "peacoat": "正式",
+    "crew neck": "基础款",
     "日系": "日系",
     "japanese": "日系",
     "极简": "极简",
     "minimal": "极简",
     "中式": "中式",
     "chinese": "中式",
+}
+
+MODEL_FIT_ALIASES = {
+    "基础款": "基础款",
+    "regular": "基础款",
+    "standard": "基础款",
+    "修身": "修身",
+    "slim": "修身",
+    "slim fit": "修身",
+    "宽松": "宽松",
+    "loose": "宽松",
+    "oversized": "宽松",
+    "baggy": "宽松",
+    "直筒": "直筒",
+    "straight": "直筒",
+    "紧身": "紧身",
+    "skinny": "紧身",
+}
+
+MODEL_OCCASION_ALIASES = {
+    "日常": "日常",
+    "everyday": "日常",
+    "daily": "日常",
+    "casual": "日常",
+    "通勤": "通勤",
+    "work": "通勤",
+    "office": "通勤",
+    "约会": "约会",
+    "date": "约会",
+    "运动": "运动",
+    "sport": "运动",
+    "workout": "运动",
+    "旅行": "旅行",
+    "travel": "旅行",
+    "正式": "正式",
+    "formal": "正式",
+    "婚礼": "婚礼",
+    "wedding": "婚礼",
+    "宴会": "宴会",
+    "party": "宴会",
+}
+
+MODEL_NAME_TRANSLATIONS = {
+    "jeans": "牛仔裤",
+    "sneaker": "运动鞋",
+    "sneakers": "运动鞋",
+    "t-shirt": "T恤",
+    "shirt": "衬衫",
+    "dress": "连衣裙",
+    "skirt": "半身裙",
+    "jacket": "外套",
+    "coat": "大衣",
+    "sweater": "毛衣",
+    "hoodie": "卫衣",
 }
 
 MODEL_SEASON_ALIASES = {
@@ -254,6 +311,54 @@ def _match_alias(value, aliases):
     return None
 
 
+def _translate_tags(tags, aliases):
+    translated = []
+    for tag in tags:
+        translated.append(_match_alias(tag, aliases) or tag)
+    return translated
+
+
+def _translate_clothing_name(name: str, color: str = "", category: str = "") -> str:
+    text = str(name or "").lower()
+    keyword = None
+    if any(word in text for word in ("sneaker", "shoe", "shoes", "footwear", "boots")):
+        keyword = "运动鞋"
+    elif any(word in text for word in ("jeans", "pants", "trousers", "bottoms")):
+        keyword = "牛仔裤" if "jeans" in text else "裤子"
+    elif any(word in text for word in ("peacoat", "overcoat", "coat")):
+        keyword = "大衣"
+    elif any(word in text for word in ("jacket", "blazer")):
+        keyword = "外套"
+    elif any(word in text for word in ("t恤", "t-shirt", "tee", "短袖")):
+        keyword = "T恤"
+    elif any(word in text for word in ("sweater", "cardigan")):
+        keyword = "毛衣"
+    elif any(word in text for word in ("hoodie",)):
+        keyword = "卫衣"
+    elif any(word in text for word in ("shirt",)):
+        keyword = "衬衫"
+    elif any(word in text for word in ("dress",)):
+        keyword = "连衣裙"
+    elif any(word in text for word in ("skirt",)):
+        keyword = "半身裙"
+
+    if keyword:
+        prefix = color.strip() if color and color.strip() else ""
+        return f"{prefix}{keyword}" if prefix else keyword
+    return MODEL_NAME_TRANSLATIONS.get(name.lower(), str(name or "").strip() or "识别衣物")
+
+
+def _infer_season(name: str) -> str:
+    text = name.lower()
+    if any(word in text for word in ("短袖", "t恤", "tee", "短裤", "凉鞋", "背心", "tank")):
+        return "夏季"
+    if any(word in text for word in ("羽绒", "棉服", "毛衣", "厚外套", "winter")):
+        return "冬季"
+    if any(word in text for word in ("外套", "风衣", "夹克", "衬衫", "jacket", "coat")):
+        return "春秋"
+    return "四季"
+
+
 def _normalize_model_result(
     data: Any,
     original_name: str,
@@ -276,21 +381,31 @@ def _normalize_model_result(
 
     season = _match_alias(data.get("season"), MODEL_SEASON_ALIASES) or "四季"
 
-    name = str(data.get("name") or "").strip() or "识别衣物"
+    raw_name = str(data.get("name") or "").strip() or "识别衣物"
+    name = _translate_clothing_name(raw_name, color, category)
     color_tags = normalize_colors(_as_list(data.get("color_tags")))
     if not color_tags:
         color_tags = [color]
     if color not in color_tags:
         color_tags = [color, *color_tags]
 
-    style_tags = _as_list(data.get("style_tags")) or [style]
-    fit_tags = _as_list(data.get("fit_tags")) or [_infer_fit(original_name)]
-    occasion_tags = _as_list(data.get("occasion_tags"))
+    style_tags = _translate_tags(
+        _as_list(data.get("style_tags")),
+        MODEL_STYLE_ALIASES,
+    ) or [style]
+    fit_tags = _translate_tags(
+        _as_list(data.get("fit_tags")),
+        MODEL_FIT_ALIASES,
+    ) or [_infer_fit(original_name)]
+    occasion_tags = _translate_tags(
+        _as_list(data.get("occasion_tags")),
+        MODEL_OCCASION_ALIASES,
+    )
     if not occasion_tags:
         occasion_tags = _infer_occasion(original_name)
 
     name_hint = (
-        f"{name} {' '.join(color_tags)} "
+        f"{raw_name} {name} {' '.join(color_tags)} "
         f"{' '.join(style_tags)} {' '.join(occasion_tags)}"
     ).lower()
     if any(word in name_hint for word in ("sneaker", "shoe", "shoes", "footwear", "boots")):
@@ -303,7 +418,10 @@ def _normalize_model_result(
         category = "裙子"
     elif any(word in name_hint for word in ("jacket", "coat", "blazer")):
         category = "外套"
-    elif any(word in name_hint for word in ("shirt", "top", "sweater", "cardigan")):
+    elif any(
+        word in name_hint
+        for word in ("t恤", "短袖", "tee", "shirt", "top", "sweater", "cardigan")
+    ):
         category = "上衣"
 
     return {
@@ -474,17 +592,18 @@ def _heuristic_vision_result(
     """从图片提取颜色并生成待确认的衣物标签。"""
     rgb = _dominant_rgb(image_path)
     color = _color_name_from_hsv(rgb)
+    name = Path(original_name).stem.strip() or "识别衣物"
 
     color_tags: List[str] = [color]
     if color in {"白色", "黑色", "灰色"}:
         color_tags.append("中性色")
 
     return {
-        "name": "识别衣物",
+        "name": name,
         "category": _infer_category(original_name),
         "color": color,
         "style": _infer_style(original_name),
-        "season": "四季",
+        "season": _infer_season(original_name),
         "color_tags": color_tags,
         "style_tags": [_infer_style(original_name)],
         "fit_tags": [_infer_fit(original_name)],

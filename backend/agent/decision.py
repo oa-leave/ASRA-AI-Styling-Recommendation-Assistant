@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from backend.agent.tools import CITY_WEATHER, SCENE_MAP
+from backend.agent.scene_lexicon import resolve_scene
 from backend.services.recommendation_config import STYLES
 
 
@@ -27,6 +28,8 @@ def _extract_occasion(query: str, fallback: Optional[str]) -> Optional[str]:
 
 def _extract_style(query: str, fallback: Optional[str]) -> Optional[str]:
     """从自然语言里提取风格偏好。"""
+    if "正式" in query:
+        return "商务"
     for style in STYLES:
         if style in query:
             return style
@@ -42,13 +45,19 @@ def deterministic_decision(
     """没有 LLM Key 时的规则解析，保证 Agent 始终可用。"""
     text = query or ""
     city = _extract_city(text, city) or "沈阳"
-    occasion = _extract_occasion(text, occasion) or "日常"
-    style = _extract_style(text, style)
+    raw_occasion = _extract_occasion(text, occasion)
+    detected_style = _extract_style(text, style)
+    resolved = resolve_scene(text, raw_occasion, detected_style)
+    occasion = resolved["occasion"]
+    style = resolved.get("style")
 
     return {
         "city": city,
         "occasion": occasion,
         "style": style,
+        "scene_type": resolved.get("scene_type"),
+        "formality": resolved.get("formality"),
+        "activity_level": resolved.get("activity_level"),
         "tool_plan": ["weather", "scene", "memory", "knowledge", "recommend"],
         "source": "deterministic",
     }
@@ -105,10 +114,25 @@ def decide_agent_plan(
         response.raise_for_status()
         content = response.json()["choices"][0]["message"]["content"]
         data = json.loads(content)
+        parsed_occasion = data.get("occasion")
+        parsed_style = data.get("style")
+        known_occasions = set(SCENE_MAP) | {"正式", "商务"}
+        if not (parsed_occasion or parsed_style):
+            return deterministic_decision(query, city, occasion, style)
+        if parsed_occasion not in known_occasions and parsed_style not in STYLES:
+            return deterministic_decision(query, city, occasion, style)
+        resolved = resolve_scene(
+            query or "",
+            parsed_occasion or occasion,
+            parsed_style or style,
+        )
         return {
             "city": data.get("city") or city or "沈阳",
-            "occasion": data.get("occasion") or occasion or "日常",
-            "style": data.get("style") or style,
+            "occasion": resolved["occasion"],
+            "style": resolved.get("style") or style,
+            "scene_type": resolved.get("scene_type"),
+            "formality": resolved.get("formality"),
+            "activity_level": resolved.get("activity_level"),
             "tool_plan": data.get("tool_plan") or [
                 "weather",
                 "scene",

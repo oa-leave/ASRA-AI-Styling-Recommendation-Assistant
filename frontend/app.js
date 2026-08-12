@@ -241,6 +241,16 @@ function formatWeather(weather) {
   return `${weather.city || ""} ${weather.temperature ?? ""}℃ ${weather.weather || ""} · ${weather.season || ""}`.trim();
 }
 
+function formalityLabel(level) {
+  const labels = ["极休闲", "休闲", "商务休闲", "正式", "高正式"];
+  return labels[level] || "";
+}
+
+function activityLabel(level) {
+  const labels = ["静态", "低强度", "中等强度", "高强度"];
+  return labels[level] || "";
+}
+
 function appendMessage(role, text) {
   const container = $("#chat-messages");
   const node = document.createElement("div");
@@ -280,12 +290,23 @@ function renderChatContext(reply) {
         ? `${reply.scene.style || ""} / ${(reply.scene.occasion_tags || []).join(", ")}`
         : "",
     ],
+    ["场景类型", reply?.scene?.scene_type || ""],
+    ["正式程度", formalityLabel(reply?.scene?.formality)],
+    ["活动量", activityLabel(reply?.scene?.activity_level)],
     ["工具计划", (reply?.tool_plan || []).join(" → ")],
     [
       "推荐摘要",
       (reply?.recommendation?.summary || []).join("，"),
     ],
     ["推荐单品", (reply?.recommendation?.items || []).map((item) => item.name).join("、")],
+    [
+      "场景提示",
+      reply?.recommendation?.scene_feedback?.warning || "",
+    ],
+    [
+      "建议补充",
+      (reply?.recommendation?.scene_feedback?.suggestions || []).join("、"),
+    ],
     ["历史 ID", reply?.history_id],
   ];
   const html = blocks
@@ -404,6 +425,16 @@ function renderRecommendations(data) {
             <div class="tag-row">
               ${(recommendation.summary || []).map((item) => `<span class="tag">${esc(item)}</span>`).join("")}
             </div>
+            ${
+              recommendation.scene_feedback?.warning
+                ? `<div class="scene-warning">${esc(recommendation.scene_feedback.warning)}</div>`
+                : ""
+            }
+            ${
+              (recommendation.scene_feedback?.suggestions || []).length
+                ? `<div class="tag-row">${recommendation.scene_feedback.suggestions.map((item) => `<span class="tag suggestion-tag">${esc(item)}</span>`).join("")}</div>`
+                : ""
+            }
             ${(recommendation.items || [])
               .map(
                 (item) => `

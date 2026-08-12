@@ -16,6 +16,10 @@ from backend.services.recommendation_config import (
     RECENT_LIKED_COLOR_BONUS,
     SCENE_SCORING,
 )
+from backend.services.scene_strategy import (
+    apply_scene_preferences,
+    build_scene_feedback,
+)
 from backend.services.explanation_filter import filter_summary
 from database.models import RecommendationHistory, User, UserProfile, Wardrobe
 
@@ -258,6 +262,7 @@ def generate_recommendation(
         collect_filtered=True,
     )
     scored = _apply_memory_adjustments(scored, memory)
+    scored = apply_scene_preferences(scored, scene)
     scored = _filter_excluded_keywords(
         scored,
         conversation_context.get("exclude_item_keywords")
@@ -350,8 +355,13 @@ def generate_recommendation(
                     outfit_summary,
                     profile_data.get("avoid_colors"),
                 ),
+                "scene_feedback": build_scene_feedback(
+                    scene,
+                    outfit_result["outfit"],
+                ),
             })
 
+    scene_feedback = build_scene_feedback(scene, best["outfit"])
     context = dict(history_context or {"source": "recommend"})
     if weather is not None:
         context["weather"] = weather
@@ -367,6 +377,7 @@ def generate_recommendation(
             "summary": summary,
             "weather": weather,
             "scene": scene,
+            "scene_feedback": scene_feedback,
         },
     )
     db.add(history)
@@ -383,8 +394,10 @@ def generate_recommendation(
             "outfit_score": best["score"],
             "items": items,
             "summary": summary,
+            "scene_feedback": scene_feedback,
         },
         "recommendations": top_outfits,
+        "scene_feedback": scene_feedback,
         "outfit_score": best["score"],
         "outfit_reason": best["reason"],
         "filtered_reasons": filtered_reasons,

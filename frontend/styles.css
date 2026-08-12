@@ -567,6 +567,21 @@ input:focus {
   font-size: 12px;
 }
 
+.suggestion-tag {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.scene-warning {
+  border-left: 3px solid var(--accent);
+  background: #fdf2ec;
+  color: #6b3d2c;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .card-actions {
   display: flex;
   gap: 8px;

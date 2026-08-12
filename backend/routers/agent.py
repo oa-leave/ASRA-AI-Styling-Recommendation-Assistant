@@ -47,6 +47,7 @@ def agent_recommend(
         "user": current_user.username,
         "weather": result.get("weather"),
         "scene": result.get("scene"),
+        "occasion": result.get("occasion"),
         "tool_plan": result.get("tool_plan"),
         "recommendation": result.get("recommendation"),
         "memory": result.get("memory"),

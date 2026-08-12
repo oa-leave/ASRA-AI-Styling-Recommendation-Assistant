@@ -6,6 +6,9 @@ class AgentState(TypedDict, total=False):
     city: str
     occasion: str
     style: Optional[str]
+    scene_type: Optional[str]
+    formality: Optional[int]
+    activity_level: Optional[int]
     tool_plan: List[str]
     user_id: int
     weather: Optional[Dict[str, Any]]

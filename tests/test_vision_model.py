@@ -3,7 +3,11 @@ import json
 from PIL import Image
 
 from backend.core.config import settings
-from backend.services.vision_service import extract_vision_result
+from backend.services.vision_service import (
+    MODEL_STYLE_ALIASES,
+    _translate_tags,
+    extract_vision_result,
+)
 
 
 def _image(path):
@@ -43,12 +47,13 @@ def test_vision_model_result_is_used_when_enabled(tmp_path, monkeypatch):
     )
 
     result = extract_vision_result(path, "photo.jpg")
-    assert result["name"] == "Blue Jeans"
+    assert result["name"] == "蓝色牛仔裤"
     assert result["category"] == "裤子"
     assert result["color"] == "蓝色"
     assert result["style"] == "休闲"
     assert result["season"] == "春季"
-    assert result["occasion_tags"] == ["Daily"]
+    assert result["occasion_tags"] == ["日常"]
+    assert result["fit_tags"] == ["直筒"]
 
 
 def test_vision_model_failure_falls_back_to_heuristics(tmp_path, monkeypatch):
@@ -109,6 +114,41 @@ def test_vision_model_parses_loose_json_and_english_aliases(tmp_path, monkeypatc
     assert result["style"] == "运动"
 
 
+def test_t_shirt_name_overrides_innerwear_category(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", True)
+    path = _image(tmp_path / "t-shirt.jpg")
+
+    class InnerwearResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "message": {
+                    "content": (
+                        '{"name": "T恤",'
+                        '"category": "内搭",'
+                        '"color": "灰色",'
+                        '"style": "休闲",'
+                        '"season": "夏季",'
+                        '"color_tags": ["灰色"],'
+                        '"style_tags": ["休闲"],'
+                        '"fit_tags": ["宽松"],'
+                        '"occasion_tags": ["日常"]}'
+                    )
+                }
+            }
+
+    monkeypatch.setattr(
+        "backend.services.vision_service.requests.post",
+        lambda *args, **kwargs: InnerwearResponse(),
+    )
+
+    result = extract_vision_result(path, "t-shirt.jpg")
+    assert result["category"] == "上衣"
+    assert result["name"] == "灰色T恤"
+
+
 def test_vision_model_is_skipped_when_disabled(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "vision_enabled", False)
     path = _image(tmp_path / "blue.jpg")
@@ -124,3 +164,19 @@ def test_vision_model_is_skipped_when_disabled(tmp_path, monkeypatch):
     result = extract_vision_result(path, "blue.jpg")
     assert result["category"] == "上衣"
     assert result["color"] == "蓝色"
+
+
+def test_heuristic_fallback_uses_filename_for_name_and_season(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", False)
+    path = _image(tmp_path / "T恤.jpg")
+    result = extract_vision_result(path, "T恤.jpg")
+    assert result["name"] == "T恤"
+    assert result["season"] == "夏季"
+
+
+def test_style_tag_translation():
+    translated = _translate_tags(
+        ["Sneakers", "Crew Neck", "Peacoat"],
+        MODEL_STYLE_ALIASES,
+    )
+    assert translated == ["运动", "基础款", "正式"]

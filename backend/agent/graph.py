@@ -38,6 +38,9 @@ def build_agent_graph(db: Session):
             "city": plan["city"],
             "occasion": plan["occasion"],
             "style": plan["style"],
+            "scene_type": plan.get("scene_type"),
+            "formality": plan.get("formality"),
+            "activity_level": plan.get("activity_level"),
             "tool_plan": plan["tool_plan"],
         }
 

@@ -14,11 +14,30 @@ CITY_WEATHER = {
 }
 
 SCENE_MAP = {
-    "通勤": {"style": "商务", "occasion_tags": ["通勤"]},
-    "约会": {"style": "休闲", "occasion_tags": ["约会"]},
-    "运动": {"style": "运动", "occasion_tags": ["运动"]},
-    "旅行": {"style": "休闲", "occasion_tags": ["旅行"]},
     "日常": {"style": "休闲", "occasion_tags": ["日常"]},
+    "通勤": {"style": "商务", "occasion_tags": ["通勤"]},
+    "客户": {"style": "商务", "occasion_tags": ["客户", "通勤"]},
+    "面试": {"style": "商务", "occasion_tags": ["面试", "通勤"]},
+    "会议": {"style": "商务", "occasion_tags": ["会议", "通勤"]},
+    "商务": {"style": "商务", "occasion_tags": ["商务", "通勤"]},
+    "出差": {"style": "商务", "occasion_tags": ["出差", "旅行"]},
+    "约会": {"style": "休闲", "occasion_tags": ["约会"]},
+    "婚礼": {"style": "商务", "occasion_tags": ["婚礼", "宴会"]},
+    "宴会": {"style": "商务", "occasion_tags": ["宴会"]},
+    "酒会": {"style": "商务", "occasion_tags": ["宴会"]},
+    "运动": {"style": "运动", "occasion_tags": ["运动"]},
+    "健身": {"style": "运动", "occasion_tags": ["运动"]},
+    "跑步": {"style": "运动", "occasion_tags": ["运动"]},
+    "旅行": {"style": "休闲", "occasion_tags": ["旅行"]},
+    "户外": {"style": "运动", "occasion_tags": ["户外", "旅行"]},
+    "爬山": {"style": "运动", "occasion_tags": ["户外", "运动"]},
+    "露营": {"style": "休闲", "occasion_tags": ["户外", "旅行"]},
+    "校园": {"style": "学院", "occasion_tags": ["校园"]},
+    "上学": {"style": "学院", "occasion_tags": ["校园"]},
+    "居家": {"style": "休闲", "occasion_tags": ["居家"]},
+    "海边": {"style": "休闲", "occasion_tags": ["旅行", "海边"]},
+    "拍照": {"style": "休闲", "occasion_tags": ["拍照"]},
+    "直播": {"style": "休闲", "occasion_tags": ["直播"]},
 }
 
 WEATHER_CODE_MAP = {

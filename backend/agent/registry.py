@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict
 from sqlalchemy.orm import Session
 
 from backend.agent.tools import analyze_scene, get_weather
+from backend.agent.scene_lexicon import resolve_scene
 from backend.services.knowledge_service import (
     build_knowledge_text,
     retrieve_fashion_rules,
@@ -23,8 +24,18 @@ def weather_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
 def scene_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
     """场景工具：根据场景分析推荐风格。"""
     scene = analyze_scene(state["occasion"])
+    resolved = resolve_scene(
+        state.get("query") or "",
+        state.get("occasion"),
+        state.get("style"),
+    )
+    scene["scene_type"] = resolved.get("scene_type")
+    scene["formality"] = resolved.get("formality")
+    scene["activity_level"] = resolved.get("activity_level")
     if state.get("style"):
         scene["style"] = state["style"]
+        if state["style"] == "商务" and scene.get("occasion_tags") == ["日常"]:
+            scene["occasion_tags"] = ["正式", "通勤"]
     return {"scene": scene}
 
 
@@ -82,6 +93,12 @@ def recommend_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
             "style": state.get("style"),
         },
     )
+    scene = state.get("scene") or {}
+    occasion = state.get("occasion")
+    scene_tags = scene.get("occasion_tags") or []
+    if scene_tags:
+        occasion = scene_tags[0]
+
     return {
         "recommendation": result["recommendation"],
         "profile": result["profile"],
@@ -89,7 +106,7 @@ def recommend_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
         "history_id": result["history_id"],
         "tool_plan": state.get("tool_plan"),
         "city": state.get("city"),
-        "occasion": state.get("occasion"),
+        "occasion": occasion,
     }
 
 

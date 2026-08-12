@@ -25,6 +25,26 @@ def test_scene_tool():
     assert scene["occasion_tags"] == ["通勤"]
 
 
+def test_customer_scene_maps_to_business():
+    scene = analyze_scene("客户")
+    assert scene["style"] == "商务"
+    assert "客户" in scene["occasion_tags"]
+
+
+def test_deterministic_decision_detects_customer_meeting():
+    plan = decide_agent_plan(
+        query="明天去见客户怎么穿",
+        city=None,
+        occasion=None,
+        style=None,
+    )
+    assert plan["occasion"] == "通勤"
+    assert plan["style"] == "商务"
+    assert plan["scene_type"] == "客户拜访"
+    assert plan["formality"] == 3
+    assert plan["activity_level"] == 0
+
+
 def test_deterministic_decision_from_query():
     plan = decide_agent_plan(
         query="明天上海约会穿什么？",
