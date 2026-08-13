@@ -101,7 +101,11 @@ def get_fallback_weather(city: str) -> Dict[str, Any]:
     }
 
 
-def get_weather(city: str, use_api: Optional[bool] = None) -> Dict[str, Any]:
+def get_weather(
+    city: str,
+    use_api: Optional[bool] = None,
+    forecast_day: int = 0,
+) -> Dict[str, Any]:
     if use_api is None:
         use_api = os.getenv("USE_WEATHER_API", "true").lower() == "true"
 
@@ -123,18 +127,42 @@ def get_weather(city: str, use_api: Optional[bool] = None) -> Dict[str, Any]:
         latitude = results[0]["latitude"]
         longitude = results[0]["longitude"]
 
+        params = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "timezone": "Asia/Shanghai",
+        }
+        if forecast_day:
+            params["daily"] = "temperature_2m_max,temperature_2m_min,weather_code"
+            params["forecast_days"] = max(forecast_day + 1, 2)
+        else:
+            params["current"] = "temperature_2m,weather_code,wind_speed_10m"
+
         forecast_response = requests.get(
             "https://api.open-meteo.com/v1/forecast",
-            params={
-                "latitude": latitude,
-                "longitude": longitude,
-                "current": "temperature_2m,weather_code,wind_speed_10m",
-                "timezone": "Asia/Shanghai",
-            },
+            params=params,
             timeout=5,
         )
         forecast_response.raise_for_status()
         forecast = forecast_response.json()
+        if forecast_day:
+            daily = forecast.get("daily") or {}
+            max_temperatures = daily.get("temperature_2m_max") or []
+            min_temperatures = daily.get("temperature_2m_min") or []
+            weather_codes = daily.get("weather_code") or []
+            if max_temperatures and len(max_temperatures) > forecast_day:
+                temperature = round(
+                    (max_temperatures[forecast_day] + min_temperatures[forecast_day]) / 2
+                )
+                weather_code = weather_codes[forecast_day]
+                return {
+                    "city": city,
+                    "temperature": temperature,
+                    "weather": _weather_description(int(weather_code)),
+                    "season": _current_season(),
+                    "source": "api",
+                    "day_offset": forecast_day,
+                }
         current = forecast.get("current") or forecast.get("current_weather") or {}
 
         temperature = current.get("temperature_2m")

@@ -7,6 +7,7 @@ const state = {
   username: localStorage.getItem("asra_username") || "",
   profileMode: "create",
   recommendData: null,
+  recognitionTask: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -563,12 +564,69 @@ async function uploadWardrobe(event) {
   const button = event.submitter;
   setBusy(button, true, "识别中");
   try {
-    const data = await requestJson("/wardrobe/upload-and-confirm", {
+    const data = await requestJson("/wardrobe/analyze-image", {
       method: "POST",
       formData,
     });
-    showToast(`已识别并入库存：${data.clothes_id}`);
-    fileInput.value = "";
+    state.recognitionTask = {
+      task_id: data.task_id,
+      candidate: data.candidate,
+    };
+    showRecognitionConfirm(data.candidate);
+    showToast("识别完成，请确认后入库");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+function showRecognitionConfirm(candidate) {
+  const form = $("#recognition-confirm-form");
+  form.elements.name.value = candidate.name || "";
+  form.elements.category.value = candidate.category || "";
+  form.elements.color.value = candidate.color || "";
+  form.elements.season.value = candidate.season || "";
+  form.elements.style.value = candidate.style || "";
+  form.elements.tags.value = [
+    ...(candidate.color_tags || []),
+    ...(candidate.style_tags || []),
+    ...(candidate.fit_tags || []),
+    ...(candidate.occasion_tags || []),
+  ].join(", ");
+  $("#recognition-confirm").classList.remove("hidden");
+}
+
+async function confirmRecognition(event) {
+  event.preventDefault();
+  if (!state.recognitionTask) return;
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const payload = {
+    name: data.get("name"),
+    category: data.get("category"),
+    color: data.get("color"),
+    season: data.get("season"),
+    style: data.get("style"),
+    color_tags: splitTags(data.get("tags")),
+    style_tags: [],
+    fit_tags: [],
+    occasion_tags: [],
+  };
+  const button = form.querySelector("button[type='submit']");
+  setBusy(button, true, "保存中");
+  try {
+    await requestJson(`/wardrobe/task/${state.recognitionTask.task_id}`, {
+      method: "PUT",
+      json: payload,
+    });
+    await requestJson(`/wardrobe/confirm-task/${state.recognitionTask.task_id}`, {
+      method: "POST",
+    });
+    $("#recognition-confirm").classList.add("hidden");
+    $("#wardrobe-file").value = "";
+    state.recognitionTask = null;
+    showToast("已确认入库");
     await loadWardrobe();
   } catch (error) {
     showToast(error.message, "error");
@@ -811,6 +869,7 @@ function init() {
   $("#recommend-results").addEventListener("click", sendFeedback);
   $("#wardrobe-add-form").addEventListener("submit", addWardrobe);
   $("#wardrobe-upload-form").addEventListener("submit", uploadWardrobe);
+  $("#recognition-confirm-form").addEventListener("submit", confirmRecognition);
   $("#wardrobe-list").addEventListener("click", deleteWardrobe);
   $("#profile-form").addEventListener("submit", saveProfile);
 

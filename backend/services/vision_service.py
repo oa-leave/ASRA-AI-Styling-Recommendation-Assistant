@@ -31,6 +31,12 @@ MODEL_CATEGORY_ALIASES = {
     "shorts": "裤子",
     "bottoms": "裤子",
     "bottom": "裤子",
+    "西裤": "西裤",
+    "suit pants": "西裤",
+    "suit-pants": "西裤",
+    "suit_pants": "西裤",
+    "dress pants": "西裤",
+    "slacks": "西裤",
     "裙子": "裙子",
     "skirt": "裙子",
     "dress": "连衣裙",
@@ -39,10 +45,12 @@ MODEL_CATEGORY_ALIASES = {
     "旗袍": "旗袍",
     "cheongsam": "旗袍",
     "汉服": "汉服",
+    "西装": "西装",
+    "suit": "西装",
+    "blazer": "西装",
     "外套": "外套",
     "jacket": "外套",
     "coat": "外套",
-    "blazer": "外套",
     "鞋子": "鞋子",
     "shoes": "鞋子",
     "shoe": "鞋子",
@@ -74,6 +82,8 @@ MODEL_STYLE_ALIASES = {
     "sneakers": "运动",
     "peacoat": "正式",
     "crew neck": "基础款",
+    "slim fit": "修身",
+    "dress pants": "西裤",
     "日系": "日系",
     "japanese": "日系",
     "极简": "极简",
@@ -120,6 +130,12 @@ MODEL_OCCASION_ALIASES = {
     "wedding": "婚礼",
     "宴会": "宴会",
     "party": "宴会",
+    "prom": "宴会",
+    "corporate": "商务",
+    "corporate?": "商务",
+    "business": "商务",
+    "business?": "商务",
+    "business casual": "商务休闲",
 }
 
 MODEL_NAME_TRANSLATIONS = {
@@ -243,6 +259,8 @@ def _color_name_from_hsv(rgb: Tuple[int, int, int]) -> str:
 
 def _infer_category(name: str) -> str:
     text = name.lower()
+    if any(word in text for word in ("西裤", "suit pants", "suit-pants", "suit_pants", "dress pants", "dress-pants", "slacks")):
+        return "西裤"
     if any(word in text for word in ("裤", "pants")):
         return "裤子"
     if any(word in text for word in ("鞋", "shoes", "sneaker")):
@@ -251,7 +269,9 @@ def _infer_category(name: str) -> str:
         return "裙子"
     if any(word in text for word in ("旗袍", "汉服", "one-piece")):
         return "旗袍"
-    if any(word in text for word in ("外套", "西装", "jacket", "coat")):
+    if any(word in text for word in ("西装", "suit", "blazer")):
+        return "西装"
+    if any(word in text for word in ("外套", "jacket", "coat")):
         return "外套"
     if any(word in text for word in ("衬衫", "上衣", "shirt", "top")):
         return "上衣"
@@ -323,12 +343,16 @@ def _translate_clothing_name(name: str, color: str = "", category: str = "") -> 
     keyword = None
     if any(word in text for word in ("sneaker", "shoe", "shoes", "footwear", "boots")):
         keyword = "运动鞋"
+    elif any(word in text for word in ("西裤", "suit pants", "suit-pants", "suit_pants", "dress pants", "dress-pants", "slacks")):
+        keyword = "西裤"
     elif any(word in text for word in ("jeans", "pants", "trousers", "bottoms")):
         keyword = "牛仔裤" if "jeans" in text else "裤子"
     elif any(word in text for word in ("peacoat", "overcoat", "coat")):
         keyword = "大衣"
     elif any(word in text for word in ("jacket", "blazer")):
         keyword = "外套"
+    elif any(word in text for word in ("suit", "西装")):
+        keyword = "西装"
     elif any(word in text for word in ("t恤", "t-shirt", "tee", "短袖")):
         keyword = "T恤"
     elif any(word in text for word in ("sweater", "cardigan")):
@@ -346,6 +370,31 @@ def _translate_clothing_name(name: str, color: str = "", category: str = "") -> 
         prefix = color.strip() if color and color.strip() else ""
         return f"{prefix}{keyword}" if prefix else keyword
     return MODEL_NAME_TRANSLATIONS.get(name.lower(), str(name or "").strip() or "识别衣物")
+
+
+URL_NAME_MARKERS = (
+    "http",
+    "src=",
+    "alicdn",
+    "img_ibank",
+    "refer=",
+    "&",
+    "?",
+    "\\",
+    "/",
+)
+
+
+def _clean_name(name, fallback="识别衣物"):
+    text = str(name or "").strip()
+    lower = text.lower()
+    if not text or len(text) > 40 or any(marker in lower for marker in URL_NAME_MARKERS):
+        return fallback
+    return text
+
+
+def _structured_fallback_name(style, color, category):
+    return f"{style or '休闲'}{color or '未知'}{category or '上衣'}"
 
 
 def _infer_season(name: str) -> str:
@@ -369,6 +418,16 @@ def _normalize_model_result(
     category = _match_alias(data.get("category"), MODEL_CATEGORY_ALIASES)
     if not category:
         category = _infer_category(original_name)
+    filename_hint = original_name.lower()
+    if any(word in filename_hint for word in ("西裤", "suit pants", "suit-pants", "suit_pants", "dress pants", "dress-pants", "slacks")):
+        category = "西裤"
+    elif any(word in filename_hint for word in ("西装", "suit", "西服", "blazer")):
+        category = "西装"
+    hint_name = None
+    if category in ("西装", "西裤"):
+        candidate_name = _clean_name(Path(original_name).stem)
+        if candidate_name != "识别衣物":
+            hint_name = candidate_name
 
     color_groups = normalize_colors(str(data.get("color") or ""))
     if not color_groups:
@@ -378,10 +437,16 @@ def _normalize_model_result(
     style = _match_alias(data.get("style"), MODEL_STYLE_ALIASES)
     if not style:
         style = _infer_style(original_name)
+    if category in ("西装", "西裤") and style not in ("商务", "正式"):
+        style = "商务"
 
     season = _match_alias(data.get("season"), MODEL_SEASON_ALIASES) or "四季"
 
-    raw_name = str(data.get("name") or "").strip() or "识别衣物"
+    raw_name = _clean_name(data.get("name"))
+    if hint_name:
+        raw_name = hint_name
+    if raw_name == "识别衣物":
+        raw_name = _structured_fallback_name(style, color, category)
     name = _translate_clothing_name(raw_name, color, category)
     color_tags = normalize_colors(_as_list(data.get("color_tags")))
     if not color_tags:
@@ -410,9 +475,17 @@ def _normalize_model_result(
     ).lower()
     if any(word in name_hint for word in ("sneaker", "shoe", "shoes", "footwear", "boots")):
         category = "鞋子"
+    elif any(word in name_hint for word in ("西裤", "suit pants", "suit-pants", "suit_pants", "dress pants", "dress-pants", "slacks")):
+        category = "西裤"
     elif any(word in name_hint for word in ("pants", "trousers", "jeans", "bottoms", "shorts")):
         category = "裤子"
-    elif any(word in name_hint for word in ("dress", "one-piece")):
+    elif any(word in name_hint for word in ("suit", "西装")):
+        category = "西装"
+    elif (
+        any(word in name_hint for word in ("dress", "one-piece"))
+        and "dress shirt" not in name_hint
+        and "dress pants" not in name_hint
+    ):
         category = "连衣裙"
     elif any(word in name_hint for word in ("skirt",)):
         category = "裙子"
@@ -423,6 +496,8 @@ def _normalize_model_result(
         for word in ("t恤", "短袖", "tee", "shirt", "top", "sweater", "cardigan")
     ):
         category = "上衣"
+    if category in ("西装", "西裤") and style not in ("商务", "正式"):
+        style = "商务"
 
     return {
         "name": name,
@@ -485,6 +560,8 @@ def _recognize_with_ollama_native(
                     "content": (
                         "你是ASRA的衣物识别模型。"
                         "只输出一个JSON对象，不要解释，不要Markdown。"
+                        "西装/西服/西装外套绝不是连衣裙；"
+                        "看到西装必须写category=西装，看到西裤写category=西裤。"
                     ),
                 },
                 {
@@ -494,7 +571,8 @@ def _recognize_with_ollama_native(
                         "color、style、season、color_tags、style_tags、"
                         "fit_tags、occasion_tags。category必须是：内搭、上衣、"
                         "裤子、裙子、连衣裙、旗袍、汉服、外套、鞋子、配饰、"
-                        "帽子、包包。"
+                        "帽子、包包。如果是西装、西服、西装外套，category必须写西装；"
+                        "如果是西裤、suit pants，category必须写西裤。"
                     ),
                     "images": [encoded_image],
                 },
@@ -532,6 +610,8 @@ def _recognize_with_openai_compatible(
                         "你是ASRA的衣物识别模型。只输出JSON，字段："
                         "name、category、color、style、season、"
                         "color_tags、style_tags、fit_tags、occasion_tags。"
+                        "西装/西服/西装外套绝不是连衣裙；"
+                        "看到西装必须写category=西装，看到西裤写category=西裤。"
                     ),
                 },
                 {
@@ -542,6 +622,8 @@ def _recognize_with_openai_compatible(
                             "text": (
                                 "识别这张衣物图片。"
                                 f"文件名：{original_name}。"
+                                "如果是西装、西服、西装外套，category必须写西装；"
+                                "如果是西裤、suit pants，category必须写西裤。"
                             ),
                         },
                         {
@@ -592,7 +674,14 @@ def _heuristic_vision_result(
     """从图片提取颜色并生成待确认的衣物标签。"""
     rgb = _dominant_rgb(image_path)
     color = _color_name_from_hsv(rgb)
-    name = Path(original_name).stem.strip() or "识别衣物"
+    raw_name = Path(original_name).stem.strip()
+    name = _clean_name(raw_name)
+    if name == "识别衣物":
+        name = _structured_fallback_name(
+            _infer_style(original_name),
+            color,
+            _infer_category(original_name),
+        )
 
     color_tags: List[str] = [color]
     if color in {"白色", "黑色", "灰色"}:

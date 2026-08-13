@@ -18,7 +18,8 @@ def test_gray_white_black():
 
 
 def test_filename_heuristics():
-    assert _infer_category("黑色西裤.jpg") == "裤子"
+    assert _infer_category("黑色西裤.jpg") == "西裤"
+    assert _infer_category("黑色西装.jpg") == "西装"
     assert _infer_style("商务西装.jpg") == "商务"
     assert _infer_fit("宽松衬衫.jpg") == "宽松"
     assert _infer_occasion("通勤衬衫.jpg") == ["通勤"]

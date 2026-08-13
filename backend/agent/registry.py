@@ -18,7 +18,12 @@ DEFAULT_TOOL_PLAN = ["weather", "scene", "memory", "knowledge", "recommend"]
 
 def weather_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
     """天气工具：根据城市获取天气和季节。"""
-    return {"weather": get_weather(state["city"])}
+    return {
+        "weather": get_weather(
+            state["city"],
+            forecast_day=state.get("forecast_day", 0),
+        )
+    }
 
 
 def scene_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
@@ -86,6 +91,7 @@ def recommend_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
         scene=state.get("scene"),
         memory=state.get("memory"),
         conversation_context=state.get("conversation_context"),
+        knowledge_rules=state.get("knowledge_rules"),
         history_context={
             "source": "agent",
             "city": state.get("city"),
@@ -107,6 +113,7 @@ def recommend_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
         "tool_plan": state.get("tool_plan"),
         "city": state.get("city"),
         "occasion": occasion,
+        "forecast_day": state.get("forecast_day", 0),
     }
 
 

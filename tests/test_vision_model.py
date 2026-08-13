@@ -4,6 +4,7 @@ from PIL import Image
 
 from backend.core.config import settings
 from backend.services.vision_service import (
+    MODEL_OCCASION_ALIASES,
     MODEL_STYLE_ALIASES,
     _translate_tags,
     extract_vision_result,
@@ -174,9 +175,134 @@ def test_heuristic_fallback_uses_filename_for_name_and_season(tmp_path, monkeypa
     assert result["season"] == "夏季"
 
 
+def test_heuristic_fallback_rejects_url_like_filename(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", False)
+    path = _image(tmp_path / "photo.jpg")
+    result = extract_vision_result(
+        path,
+        "src=http___cbu01.alicdn.com_img_ibank_O1CN01ggQx2x28kJjVVPTOA.jpg",
+    )
+    assert result["name"] == "休闲蓝色上衣"
+    assert "src" not in result["name"]
+
+
+def test_suit_is_classified_as_suit_category(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", True)
+    path = _image(tmp_path / "suit.jpg")
+
+    class SuitResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "message": {
+                    "content": (
+                        '{"name": "Suit",'
+                        '"category": "上衣",'
+                        '"color": "黑色",'
+                        '"style": "商务",'
+                        '"season": "四季",'
+                        '"color_tags": ["黑色"],'
+                        '"style_tags": ["商务"],'
+                        '"fit_tags": ["修身"],'
+                        '"occasion_tags": ["通勤"]}'
+                    )
+                }
+            }
+
+    monkeypatch.setattr(
+        "backend.services.vision_service.requests.post",
+        lambda *args, **kwargs: SuitResponse(),
+    )
+
+    result = extract_vision_result(path, "suit.jpg")
+    assert result["category"] == "西装"
+    assert result["name"] == "黑色西装"
+
+
+def test_suit_pants_is_classified_as_suit_pants_category(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", True)
+    path = _image(tmp_path / "suit-pants.jpg")
+
+    class SuitPantsResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "message": {
+                    "content": (
+                        '{"name": "Suit Pants",'
+                        '"category": "Trousers",'
+                        '"color": "黑色",'
+                        '"style": "休闲",'
+                        '"season": "四季",'
+                        '"color_tags": ["黑色"],'
+                        '"style_tags": ["商务"],'
+                        '"fit_tags": ["修身"],'
+                        '"occasion_tags": ["通勤"]}'
+                    )
+                }
+            }
+
+    monkeypatch.setattr(
+        "backend.services.vision_service.requests.post",
+        lambda *args, **kwargs: SuitPantsResponse(),
+    )
+
+    result = extract_vision_result(path, "suit-pants.jpg")
+    assert result["category"] == "西裤"
+    assert result["name"] == "黑色西裤"
+    assert result["style"] == "商务"
+
+
+def test_suit_filename_overrides_model_category(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", True)
+    path = _image(tmp_path / "suit.jpg")
+
+    class WrongModelResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "message": {
+                    "content": (
+                        '{"name": "Blue Pants",'
+                        '"category": "Pants",'
+                        '"color": "蓝色",'
+                        '"style": "Slim Fit",'
+                        '"season": "春季",'
+                        '"color_tags": ["蓝色"],'
+                        '"style_tags": ["Dress Shirt"],'
+                        '"fit_tags": ["Slim Fit"],'
+                        '"occasion_tags": ["Business"]}'
+                    )
+                }
+            }
+
+    monkeypatch.setattr(
+        "backend.services.vision_service.requests.post",
+        lambda *args, **kwargs: WrongModelResponse(),
+    )
+
+    result = extract_vision_result(path, "蓝色西装.jpg")
+    assert result["category"] == "西装"
+    assert result["name"] == "蓝色西装"
+
+
 def test_style_tag_translation():
     translated = _translate_tags(
         ["Sneakers", "Crew Neck", "Peacoat"],
         MODEL_STYLE_ALIASES,
     )
     assert translated == ["运动", "基础款", "正式"]
+
+
+def test_occasion_tag_translation():
+    translated = _translate_tags(
+        ["Prom", "Corporate?", "婚礼"],
+        MODEL_OCCASION_ALIASES,
+    )
+    assert translated == ["宴会", "商务", "婚礼"]

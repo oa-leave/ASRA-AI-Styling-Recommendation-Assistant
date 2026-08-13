@@ -13,10 +13,12 @@ def build_deterministic_explanation(
     recommendation: Optional[Dict[str, Any]],
     memory: Optional[Dict[str, Any]] = None,
     knowledge_text: Optional[str] = None,
+    forecast_day: int = 0,
 ) -> str:
     weather_text = "天气未知"
     if weather:
         weather_text = f"{weather.get('temperature')}℃{weather.get('weather')}"
+    day_label = "后天" if forecast_day >= 2 else ("明天" if forecast_day == 1 else "今天")
 
     items = recommendation.get("items", []) if recommendation else []
     names = "、".join(item["name"] for item in items) or "暂无可推荐衣物"
@@ -26,7 +28,7 @@ def build_deterministic_explanation(
     memory_part = f" 记忆：{memory_text}" if memory_text else ""
     knowledge_part = f" 穿搭知识：{knowledge_text}" if knowledge_text else ""
     return (
-        f"今天{city}{weather_text}，{occasion}场景，推荐：{names}{reason}。"
+        f"{day_label}{city}{weather_text}，{occasion}场景，推荐：{names}{reason}。"
         f"{memory_part}{knowledge_part}"
     ).strip()
 
@@ -39,6 +41,7 @@ def generate_llm_explanation(
     profile: Optional[Dict[str, Any]] = None,
     memory: Optional[Dict[str, Any]] = None,
     knowledge_text: Optional[str] = None,
+    forecast_day: int = 0,
 ) -> str:
     api_key = os.getenv("LLM_API_KEY")
     if not api_key:
@@ -49,6 +52,7 @@ def generate_llm_explanation(
             recommendation,
             memory,
             knowledge_text,
+            forecast_day,
         )
 
     base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
@@ -74,6 +78,7 @@ def generate_llm_explanation(
                         "role": "user",
                         "content": (
                             f"城市:{city}，天气:{weather}，场景:{occasion}，"
+                            f"日期偏移:{forecast_day}，"
                             f"推荐:{recommendation}，用户画像:{profile}，"
                             f"记忆:{memory_text}，穿搭知识:{knowledge}"
                         ),
@@ -95,4 +100,5 @@ def generate_llm_explanation(
             recommendation,
             memory,
             knowledge_text,
+            forecast_day,
         )

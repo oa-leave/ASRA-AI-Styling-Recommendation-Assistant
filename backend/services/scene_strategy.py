@@ -6,6 +6,8 @@ from backend.services.recommendation_config import CATEGORY_TO_SLOT
 
 SCENE_OCCASION_BONUS = 20
 SCENE_PREFERRED_BONUS = 10
+SCENE_NON_FORMAL_PENALTY = 80
+SCENE_HIGH_FORMALITY_OCCASION_BONUS = 60
 
 
 FORMAL_RULES = {
@@ -15,10 +17,49 @@ FORMAL_RULES = {
     "preferred_keywords": {
         "上衣": ["衬衫", "西装", "polo"],
         "裤子": ["西裤", "直筒裤", "休闲裤", "烟管裤"],
-        "外套": ["西装外套", "风衣", "大衣"],
+        "外套": ["西装", "西装外套", "礼服", "风衣", "大衣"],
         "鞋子": ["皮鞋", "乐福鞋", "单鞋"],
     },
     "suggestions": ["白色衬衫", "深色直筒裤", "皮鞋"],
+}
+
+INTERVIEW_RULES = {
+    "name": "面试",
+    "occasion_tags": ["面试", "通勤"],
+    "required_slots": ["上衣", "裤子", "鞋子"],
+    "preferred_keywords": {
+        "上衣": ["衬衫", "衬衣", "西装"],
+        "裤子": ["西裤", "直筒裤"],
+        "外套": ["西装", "西装外套"],
+        "鞋子": ["皮鞋", "乐福鞋"],
+    },
+    "suggestions": ["白色衬衫", "深色西裤", "皮鞋"],
+}
+
+CLIENT_RULES = {
+    "name": "客户拜访",
+    "occasion_tags": ["客户", "商务", "通勤"],
+    "required_slots": ["上衣", "裤子", "鞋子"],
+    "preferred_keywords": {
+        "上衣": ["衬衫", "衬衣", "西装"],
+        "裤子": ["西裤", "直筒裤"],
+        "外套": ["西装", "西装外套"],
+        "鞋子": ["皮鞋", "乐福鞋"],
+    },
+    "suggestions": ["白色衬衫", "深色西裤", "皮鞋"],
+}
+
+WEDDING_RULES = {
+    "name": "婚礼",
+    "occasion_tags": ["婚礼", "婚宴", "宴会"],
+    "required_slots": ["上衣", "裤子", "鞋子"],
+    "preferred_keywords": {
+        "上衣": ["礼服", "衬衫", "衬衣"],
+        "裤子": ["西裤", "礼服裤"],
+        "外套": ["西装", "礼服"],
+        "鞋子": ["皮鞋", "乐福鞋"],
+    },
+    "suggestions": ["白色礼服衬衫", "黑色西裤", "皮鞋"],
 }
 
 DATE_RULES = {
@@ -97,6 +138,10 @@ SCENE_RULES = {
 }
 
 
+def _slot_for_item(item: Dict[str, Any]) -> str:
+    return CATEGORY_TO_SLOT.get(item.get("category"), item.get("category"))
+
+
 def _item_text(item: Optional[Dict[str, Any]]) -> str:
     if not item:
         return ""
@@ -125,6 +170,13 @@ def _find_rule(scene: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def _select_rule(scene: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    scene_type = scene.get("scene_type")
+    if scene_type in {"婚礼", "婚宴"}:
+        return WEDDING_RULES
+    if scene_type == "面试":
+        return INTERVIEW_RULES
+    if scene_type in {"客户拜访", "商务洽谈"}:
+        return CLIENT_RULES
     formality = scene.get("formality")
     if formality is not None and int(formality) >= 3:
         return FORMAL_RULES
@@ -145,6 +197,73 @@ def _occasion_matches(item_tags, scene_tags) -> bool:
     return False
 
 
+def _is_formal_item(item: Dict[str, Any]) -> bool:
+    if item.get("category") in {"西装", "西裤"}:
+        return True
+    text = _item_text(item)
+    text += " " + " ".join(item.get("occasion_tags") or [])
+    formal_keywords = (
+        "西装",
+        "西服",
+        "西裤",
+        "衬衫",
+        "衬衣",
+        "礼服",
+        "皮鞋",
+        "乐福鞋",
+        "单鞋",
+    )
+    if any(keyword in text for keyword in formal_keywords):
+        return True
+    formal_occasions = [
+        "正式",
+        "商务",
+        "通勤",
+        "工作",
+        "婚礼",
+        "宴会",
+        "客户",
+        "会议",
+        "面试",
+        "商务会议",
+    ]
+    return _occasion_matches(item.get("occasion_tags"), formal_occasions)
+
+
+def apply_scene_constraints(
+    scored_items: List[Dict[str, Any]],
+    scene: Optional[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if not scored_items or not scene:
+        return scored_items
+
+    formality = int(scene.get("formality") or 0)
+    if formality < 3:
+        return scored_items
+
+    formal_slots = {
+        _slot_for_item(item)
+        for item in scored_items
+        if _is_formal_item(item)
+    }
+    if formal_slots:
+        scored_items = [
+            item
+            for item in scored_items
+            if _slot_for_item(item) not in formal_slots or _is_formal_item(item)
+        ]
+
+    penalty = SCENE_NON_FORMAL_PENALTY
+    if formality >= 4:
+        penalty += 40
+
+    for item in scored_items:
+        if not _is_formal_item(item):
+            item["score"] = item.get("score", 0) - penalty
+
+    return scored_items
+
+
 def apply_scene_preferences(
     scored_items: List[Dict[str, Any]],
     scene: Optional[Dict[str, Any]],
@@ -159,11 +278,17 @@ def apply_scene_preferences(
     scene_tags = list(scene.get("occasion_tags") or [])
     scene_tags.extend(rule.get("occasion_tags") or [])
     preferred_keywords = rule.get("preferred_keywords") or {}
+    formality = int(scene.get("formality") or 0)
+    occasion_bonus = (
+        SCENE_HIGH_FORMALITY_OCCASION_BONUS
+        if formality >= 3
+        else SCENE_OCCASION_BONUS
+    )
 
     for item in scored_items:
         bonus = 0
         if _occasion_matches(item.get("occasion_tags"), scene_tags):
-            bonus += SCENE_OCCASION_BONUS
+            bonus += occasion_bonus
 
         slot = CATEGORY_TO_SLOT.get(item.get("category"), item.get("category"))
         keywords = preferred_keywords.get(slot, [])

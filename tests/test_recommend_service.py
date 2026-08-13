@@ -1,4 +1,5 @@
 from backend.services.recommend_service import (
+    _apply_knowledge_rules,
     _apply_memory_adjustments,
     _apply_formal_fallback_adjustments,
     _apply_recent_liked_color_bonus,
@@ -117,3 +118,21 @@ def test_recent_liked_color_bonus():
     )
     assert adjusted[0]["score"] == 110
     assert adjusted[1]["score"] == 100
+
+
+def test_knowledge_rules_add_score_to_matching_items():
+    scored = [
+        {
+            "name": "白色衬衫",
+            "category": "上衣",
+            "season": "夏季",
+            "style": "商务",
+            "color_tags": ["白色"],
+            "style_tags": [],
+            "occasion_tags": [],
+            "score": 100,
+        }
+    ]
+    rules = [{"tags": ["夏季", "透气"]}]
+    adjusted = _apply_knowledge_rules(scored, rules)
+    assert adjusted[0]["score"] == 105

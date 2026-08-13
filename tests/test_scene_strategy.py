@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.services.scene_strategy import (
+    apply_scene_constraints,
     apply_scene_preferences,
     build_scene_feedback,
 )
@@ -74,6 +75,118 @@ def test_apply_scene_preferences_boosts_all_matching_slots():
     assert scores["白色衬衫"] > scores["灰色T恤"]
     assert scores["黑色西裤"] > scores["牛仔裤"]
     assert scores["黑色皮鞋"] > scores["白色运动鞋"]
+
+
+def test_formal_constraints_prioritize_suit_over_tshirt():
+    items = [
+        {
+            "name": "白色T恤",
+            "category": "上衣",
+            "style": "休闲",
+            "occasion_tags": ["日常"],
+            "score": 100,
+        },
+        {
+            "name": "黑色西装",
+            "category": "西装",
+            "style": "商务",
+            "occasion_tags": ["正式", "商务"],
+            "score": 70,
+        },
+    ]
+    adjusted = apply_scene_constraints(
+        items,
+        {
+            "style": "商务",
+            "formality": 3,
+            "scene_type": "客户拜访",
+            "activity_level": 0,
+        },
+    )
+    scores = {item["name"]: item["score"] for item in adjusted}
+    assert scores["黑色西装"] > scores["白色T恤"]
+
+
+def test_hard_constraint_removes_tshirt_when_formal_shirt_exists():
+    items = [
+        {
+            "name": "白色T恤",
+            "category": "上衣",
+            "style": "休闲",
+            "occasion_tags": ["日常"],
+            "score": 100,
+        },
+        {
+            "name": "白色衬衫",
+            "category": "上衣",
+            "style": "商务",
+            "occasion_tags": ["商务会议"],
+            "score": 80,
+        },
+        {
+            "name": "黑色西装",
+            "category": "西装",
+            "style": "商务",
+            "occasion_tags": ["正式", "商务"],
+            "score": 70,
+        },
+    ]
+    adjusted = apply_scene_constraints(
+        items,
+        {
+            "style": "商务",
+            "formality": 3,
+            "scene_type": "客户拜访",
+            "activity_level": 0,
+        },
+    )
+    names = [item["name"] for item in adjusted]
+    assert "白色T恤" not in names
+    assert "白色衬衫" in names
+    assert "黑色西装" in names
+
+
+def test_wedding_scene_uses_wedding_suggestions():
+    feedback = build_scene_feedback(
+        {
+            "style": "商务",
+            "formality": 4,
+            "scene_type": "婚礼",
+            "occasion_tags": ["婚礼"],
+        },
+        {"上衣": {"name": "灰色T恤", "category": "上衣"}},
+    )
+    assert feedback["suggestions"] == ["白色礼服衬衫", "黑色西裤", "皮鞋"]
+
+
+def test_high_formality_occassion_bonus_beats_user_preference():
+    items = [
+        {
+            "name": "灰色衬衫",
+            "category": "上衣",
+            "style": "休闲",
+            "occasion_tags": ["日常"],
+            "score": 80,
+        },
+        {
+            "name": "白色纯棉衬衣",
+            "category": "上衣",
+            "style": "休闲",
+            "occasion_tags": ["商务会议"],
+            "score": 40,
+        },
+    ]
+    adjusted = apply_scene_preferences(
+        items,
+        {
+            "style": "商务",
+            "formality": 3,
+            "occasion_tags": ["正式", "通勤"],
+            "scene_type": "客户拜访",
+        },
+    )
+    scores = {item["name"]: item["score"] for item in adjusted}
+    assert scores["白色纯棉衬衣"] > scores["灰色衬衫"]
 
 
 def test_agent_formal_response_includes_scene_feedback():
@@ -188,3 +301,202 @@ def test_agent_formal_prefers_shirt_over_tshirt():
     assert response.status_code == 200
     items = response.json()["recommendation"]["items"]
     assert any("衬衣" in item["name"] for item in items)
+
+
+def test_formal_summer_includes_suit_despite_season():
+    username = _unique("summer_suit")
+    client.post(
+        "/user/register",
+        json={
+            "email": f"{username}@example.com",
+            "username": username,
+            "password": "password123",
+        },
+    )
+    login = client.post(
+        "/auth/login",
+        data={"username": username, "password": "password123"},
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "白色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["白色", "灰色"],
+            "avoid_colors": [],
+        },
+    )
+    for item in [
+        {
+            "name": "白色T恤",
+            "category": "上衣",
+            "color": "白色",
+            "season": "夏季",
+            "style": "休闲",
+            "fit_tags": ["宽松"],
+            "occasion_tags": ["日常"],
+        },
+        {
+            "name": "灰色裤子",
+            "category": "裤子",
+            "color": "灰色",
+            "season": "夏季",
+            "style": "休闲",
+            "fit_tags": ["直筒"],
+            "occasion_tags": ["日常"],
+        },
+        {
+            "name": "黑色西装",
+            "category": "西装",
+            "color": "黑色",
+            "season": "春季",
+            "style": "商务",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["正式", "商务"],
+        },
+    ]:
+        client.post("/wardrobe/add", headers=headers, json=item)
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={"city": "沈阳", "style": "商务"},
+    )
+    assert response.status_code == 200
+    items = response.json()["recommendation"]["items"]
+    assert any("西装" in item["name"] for item in items)
+
+
+def test_formal_scene_prefers_formal_pants_over_casual_pants():
+    username = _unique("formal_pants")
+    client.post(
+        "/user/register",
+        json={
+            "email": f"{username}@example.com",
+            "username": username,
+            "password": "password123",
+        },
+    )
+    login = client.post(
+        "/auth/login",
+        data={"username": username, "password": "password123"},
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "白色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["白色", "灰色"],
+            "avoid_colors": [],
+        },
+    )
+    for item in [
+        {
+            "name": "白色衬衫",
+            "category": "上衣",
+            "color": "白色",
+            "season": "春季",
+            "style": "商务",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["商务会议"],
+        },
+        {
+            "name": "灰色裤子",
+            "category": "裤子",
+            "color": "灰色",
+            "season": "夏季",
+            "style": "休闲",
+            "fit_tags": ["直筒"],
+            "occasion_tags": ["日常"],
+        },
+        {
+            "name": "蓝色正式裤",
+            "category": "裤子",
+            "color": "蓝色",
+            "season": "春季",
+            "style": "商务",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["正式"],
+        },
+        {
+            "name": "黑色西装",
+            "category": "西装",
+            "color": "黑色",
+            "season": "春季",
+            "style": "商务",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["正式", "商务"],
+        },
+    ]:
+        client.post("/wardrobe/add", headers=headers, json=item)
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={"city": "沈阳", "style": "商务"},
+    )
+    assert response.status_code == 200
+    items = response.json()["recommendation"]["items"]
+    names = [item["name"] for item in items]
+    assert "蓝色正式裤" in names
+    assert "灰色裤子" not in names
+
+
+def test_filtered_formal_items_explanation_mentions_avoid_colors():
+    username = _unique("filtered_formal")
+    client.post(
+        "/user/register",
+        json={
+            "email": f"{username}@example.com",
+            "username": username,
+            "password": "password123",
+        },
+    )
+    login = client.post(
+        "/auth/login",
+        data={"username": username, "password": "password123"},
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "白色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["白色"],
+            "avoid_colors": ["黑色"],
+        },
+    )
+    client.post(
+        "/wardrobe/add",
+        headers=headers,
+        json={
+            "name": "黑色西装",
+            "category": "西装",
+            "color": "黑色",
+            "season": "春季",
+            "style": "商务",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["正式", "商务"],
+        },
+    )
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={"city": "沈阳", "style": "商务"},
+    )
+    assert response.status_code == 200
+    summary = response.json()["recommendation"]["summary"]
+    assert any("回避" in item for item in summary)
+    assert not any("缺少商务风格单品" in item for item in summary)

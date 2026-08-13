@@ -36,6 +36,14 @@ def _extract_style(query: str, fallback: Optional[str]) -> Optional[str]:
     return fallback
 
 
+def _extract_forecast_day(query: str) -> int:
+    if "后天" in query:
+        return 2
+    if "明天" in query or "明日" in query:
+        return 1
+    return 0
+
+
 def deterministic_decision(
     query: Optional[str],
     city: Optional[str],
@@ -58,6 +66,7 @@ def deterministic_decision(
         "scene_type": resolved.get("scene_type"),
         "formality": resolved.get("formality"),
         "activity_level": resolved.get("activity_level"),
+        "forecast_day": _extract_forecast_day(text),
         "tool_plan": ["weather", "scene", "memory", "knowledge", "recommend"],
         "source": "deterministic",
     }
@@ -133,6 +142,7 @@ def decide_agent_plan(
             "scene_type": resolved.get("scene_type"),
             "formality": resolved.get("formality"),
             "activity_level": resolved.get("activity_level"),
+            "forecast_day": _extract_forecast_day(query or ""),
             "tool_plan": data.get("tool_plan") or [
                 "weather",
                 "scene",

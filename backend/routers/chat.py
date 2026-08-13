@@ -75,6 +75,7 @@ def chat(
         result.get("profile"),
         result.get("memory"),
         knowledge_text,
+        forecast_day=result.get("forecast_day", 0),
     )
 
     memory = result.get("memory") or {}

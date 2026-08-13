@@ -167,9 +167,10 @@
               <label><span>名称</span><input name="name" required></label>
               <label><span>分类</span><input name="category" list="category-list" required></label>
               <datalist id="category-list">
-                <option value="上衣"></option><option value="裤子"></option>
+                <option value="上衣"></option><option value="裤子"></option><option value="西裤"></option>
                 <option value="裙子"></option><option value="连衣裙"></option>
-                <option value="外套"></option><option value="鞋子"></option>
+                <option value="外套"></option><option value="西装"></option>
+                <option value="鞋子"></option>
                 <option value="配饰"></option>
               </datalist>
               <label><span>颜色</span><input name="color" required></label>
@@ -198,6 +199,24 @@
                 <span>上传识别</span>
               </button>
             </form>
+            <div id="recognition-confirm" class="panel confirm-panel hidden">
+              <div class="panel-head">
+                <i data-lucide="badge-check"></i>
+                <span>确认识别结果</span>
+              </div>
+              <form id="recognition-confirm-form" class="form-grid compact">
+                <label><span>名称</span><input name="name" required></label>
+                <label><span>分类</span><input name="category" list="category-list" required></label>
+                <label><span>颜色</span><input name="color" required></label>
+                <label><span>季节</span><input name="season" list="season-list" required></label>
+                <label><span>风格</span><input name="style" list="style-list" required></label>
+                <label><span>标签</span><input name="tags" placeholder="白色, 基础款, 通勤"></label>
+                <button type="submit" class="primary span-2">
+                  <i data-lucide="check"></i>
+                  <span>确认入库</span>
+                </button>
+              </form>
+            </div>
           </div>
           <div class="panel list-panel">
             <div class="panel-head">

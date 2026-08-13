@@ -8,6 +8,8 @@ from backend.services.recommendation_engine import (
     build_top_outfits,
     calculate_clothes_score,
     generate_summary,
+    normalize_colors,
+    normalize_tags,
 )
 from backend.services.recommendation_config import (
     FORMAL_FALLBACK_BONUS,
@@ -17,6 +19,7 @@ from backend.services.recommendation_config import (
     SCENE_SCORING,
 )
 from backend.services.scene_strategy import (
+    apply_scene_constraints,
     apply_scene_preferences,
     build_scene_feedback,
 )
@@ -70,6 +73,84 @@ def _filter_excluded_keywords(
             for keyword in keywords
         )
     ]
+
+
+FORMAL_ITEM_KEYWORDS = (
+    "西装",
+    "西裤",
+    "衬衫",
+    "衬衣",
+    "皮鞋",
+    "礼服",
+    "乐福鞋",
+    "单鞋",
+)
+
+KNOWLEDGE_BONUS = 5
+
+
+def _is_formal_wardrobe_item(item) -> bool:
+    if item.category in ("西装", "西裤"):
+        return True
+    text = (
+        f"{item.name or ''} {item.category or ''} "
+        f"{' '.join(item.occasion_tags or [])}"
+    ).lower()
+    return any(keyword in text for keyword in FORMAL_ITEM_KEYWORDS)
+
+
+def _include_scene_candidates(
+    scored: List[Dict[str, Any]],
+    wardrobe,
+    profile_data: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    existing_ids = {item.get("id") for item in scored}
+    avoid_colors = set(normalize_colors(profile_data.get("avoid_colors") or []))
+    candidates = []
+    for item in wardrobe:
+        if item.id in existing_ids:
+            continue
+        if _color_group_name(item.color) in avoid_colors:
+            continue
+        candidates.append({
+            "id": item.id,
+            "name": item.name,
+            "category": item.category,
+            "color": item.color,
+            "style": item.style,
+            "season": item.season,
+            "color_tags": normalize_tags(item.color_tags),
+            "style_tags": normalize_tags(item.style_tags),
+            "fit_tags": normalize_tags(item.fit_tags),
+            "occasion_tags": normalize_tags(item.occasion_tags),
+            "score": 0,
+            "reason": ["场景候选"],
+        })
+    return scored + candidates
+
+
+def _apply_knowledge_rules(
+    scored: List[Dict[str, Any]],
+    knowledge_rules: Optional[List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    if not scored or not knowledge_rules:
+        return scored
+
+    for item in scored:
+        item_tags = set()
+        item_tags.add(str(item.get("category") or ""))
+        item_tags.add(str(item.get("season") or ""))
+        item_tags.add(str(item.get("style") or ""))
+        item_tags.update(item.get("color_tags") or [])
+        item_tags.update(item.get("style_tags") or [])
+        item_tags.update(item.get("occasion_tags") or [])
+        item_tags.discard("")
+
+        for rule in knowledge_rules:
+            if item_tags & set(rule.get("tags") or []):
+                item["score"] = item.get("score", 0) + KNOWLEDGE_BONUS
+
+    return scored
 
 
 def _apply_formal_fallback_adjustments(
@@ -203,6 +284,7 @@ def generate_recommendation(
     scene: Optional[Dict[str, Any]] = None,
     memory: Optional[Dict[str, Any]] = None,
     conversation_context: Optional[Dict[str, Any]] = None,
+    knowledge_rules: Optional[List[Dict[str, Any]]] = None,
     top_n: int = 3,
     history_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -261,8 +343,10 @@ def generate_recommendation(
         profile_obj,
         collect_filtered=True,
     )
+    scored = _include_scene_candidates(scored, wardrobe, profile_data)
     scored = _apply_memory_adjustments(scored, memory)
     scored = apply_scene_preferences(scored, scene)
+    scored = apply_scene_constraints(scored, scene)
     scored = _filter_excluded_keywords(
         scored,
         conversation_context.get("exclude_item_keywords")
@@ -284,13 +368,24 @@ def generate_recommendation(
         scored = _apply_formal_fallback_adjustments(scored)
     if scene and scene.get("occasion_tags"):
         scored = _apply_scene_scoring(scored, scene)
+    scored = _apply_knowledge_rules(scored, knowledge_rules)
     no_matching_items = not scored
+    formal_in_wardrobe = any(_is_formal_wardrobe_item(item) for item in wardrobe)
+    formal_filtered_message = None
+    if formal_in_wardrobe and filtered_reasons:
+        formal_filtered_message = (
+            "衣柜中有正式单品，但部分被当前回避色过滤；"
+            "请取消相关回避色或补充其他正式单品"
+        )
 
     if no_matching_items:
         message = (
-            f"缺少{requested_style}风格衣物"
-            if requested_style
-            else "没有符合条件的衣物"
+            formal_filtered_message
+            or (
+                f"缺少{requested_style}风格衣物"
+                if requested_style
+                else "没有符合条件的衣物"
+            )
         )
         outfit_results = []
         best = {
@@ -302,6 +397,25 @@ def generate_recommendation(
         summary = [message]
         top_outfits = []
     else:
+        force_slot = set(conversation_context.get("force_slot") or []) if conversation_context else set()
+        scene_requires_outerwear = bool(scene) and (
+            int(scene.get("formality") or 0) >= 3
+            or scene.get("scene_type") in {
+                "婚礼",
+                "宴会",
+                "酒会",
+                "客户拜访",
+                "面试",
+                "会议",
+            }
+            or scene.get("style") == "商务"
+        )
+        if scene_requires_outerwear and any(
+            item.get("category") in {"外套", "西装"}
+            for item in scored
+        ):
+            force_slot.add("外套")
+
         outfit_results = build_top_outfits(
             scored,
             profile_obj,
@@ -309,9 +423,7 @@ def generate_recommendation(
             slot_style=conversation_context.get("slot_style")
             if conversation_context
             else None,
-            force_slot=conversation_context.get("force_slot")
-            if conversation_context
-            else None,
+            force_slot=list(force_slot) or None,
             remove_slot=conversation_context.get("remove_slot")
             if conversation_context
             else None,
@@ -328,10 +440,16 @@ def generate_recommendation(
         items = _build_items(best["outfit"])
         summary = generate_summary(best["outfit"], best["reason"], summary_profile)
         if style_missing:
+            missing_summary = (
+                formal_filtered_message
+                or (
+                    f"当前衣柜缺少{requested_style}风格单品，"
+                    "使用简洁配色打造偏正式休闲风"
+                )
+            )
             summary.insert(
                 0,
-                f"当前衣柜缺少{requested_style}风格单品，"
-                "使用简洁配色打造偏正式休闲风",
+                missing_summary,
             )
         summary = filter_summary(summary, profile_data.get("avoid_colors"))
 
@@ -343,10 +461,16 @@ def generate_recommendation(
                     summary_profile,
                 )
             if style_missing:
+                missing_summary = (
+                    formal_filtered_message
+                    or (
+                        f"当前衣柜缺少{requested_style}风格单品，"
+                        "使用简洁配色打造偏正式休闲风"
+                    )
+                )
                 outfit_summary.insert(
                     0,
-                    f"当前衣柜缺少{requested_style}风格单品，"
-                    "使用简洁配色打造偏正式休闲风",
+                    missing_summary,
                 )
             top_outfits.append({
                 "outfit_score": outfit_result["score"],
