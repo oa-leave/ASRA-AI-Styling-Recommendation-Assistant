@@ -70,12 +70,16 @@ def get_user_memory(
 
     style_counter = {}
     color_counter = {}
+    recent_item_names = []
     for history in recent_history:
         response = history.response_snapshot or {}
         items = response.get("items") or []
         for item in items:
             style = item.get("style")
             color = item.get("color")
+            name = item.get("name")
+            if name:
+                recent_item_names.append(name)
             if style:
                 style_counter[style] = style_counter.get(style, 0) + 1
             if color:
@@ -110,8 +114,18 @@ def get_user_memory(
     )
     favorite_colors = merged_colors[:3]
 
+    profile_data = _profile_to_dict(profile)
+    if profile_data:
+        profile_data["favorite_colors"] = [
+            color
+            for color in (profile_data.get("favorite_colors") or [])
+            if color not in avoid_colors
+        ]
+        if profile_data.get("favorite_color") in avoid_colors:
+            profile_data["favorite_color"] = None
+
     return {
-        "profile": _profile_to_dict(profile),
+        "profile": profile_data,
         "recent_history": [
             {
                 "id": history.id,
@@ -125,23 +139,44 @@ def get_user_memory(
         "preference_signals": {
             "favorite_styles": favorite_styles,
             "favorite_colors": favorite_colors,
+            "recent_item_names": list(
+                dict.fromkeys(recent_item_names)
+            )[:10],
         },
     }
 
 
-def build_memory_text(memory: Dict[str, Any]) -> str:
+def build_memory_text(
+    memory: Dict[str, Any],
+    active_style: Optional[str] = None,
+) -> str:
     parts = []
 
     profile = memory.get("profile")
     if profile:
-        favorite_colors = profile.get("favorite_colors") or []
+        avoid_colors = set(profile.get("avoid_colors") or [])
+        favorite_colors = [
+            color
+            for color in (profile.get("favorite_colors") or [])
+            if color not in avoid_colors
+        ]
+        fallback_color = profile.get("favorite_color")
         favorite_text = (
             ",".join(favorite_colors)
             if favorite_colors
-            else (profile.get("favorite_color") or "未知")
+            else (
+                fallback_color
+                if fallback_color not in avoid_colors
+                else "未知"
+            )
         )
+        profile_style = profile.get("style") or "未知"
+        if active_style and profile_style != active_style:
+            preference_text = f"本次要求：{active_style}风格"
+        else:
+            preference_text = f"用户偏好：{profile_style}风格"
         parts.append(
-            f"用户偏好：{profile.get('style') or '未知'}风格，"
+            f"{preference_text}，"
             f"喜欢颜色：{favorite_text}"
         )
 

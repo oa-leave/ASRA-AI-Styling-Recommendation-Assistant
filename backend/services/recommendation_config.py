@@ -141,7 +141,8 @@ SEASON_CATEGORY_RULES = {
 
 MEMORY_BONUS = {
     "liked_item": 5,
-    "disliked_item": -10,
+    "disliked_item": -30,
+    "recent_item_penalty": -6,
     "favorite_style": 10,
     "favorite_color": 8,
 }

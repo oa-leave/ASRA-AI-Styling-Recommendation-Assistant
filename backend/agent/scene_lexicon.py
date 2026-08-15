@@ -365,6 +365,153 @@ SCENE_ALIASES = {
         "activity_level": 2,
         "style": "学院",
     },
+    "聚餐": {
+        "occasion": "日常",
+        "scene_type": "朋友聚餐",
+        "formality": 1,
+        "activity_level": 0,
+        "style": "休闲",
+    },
+    "看电影": {
+        "occasion": "日常",
+        "scene_type": "看电影",
+        "formality": 1,
+        "activity_level": 0,
+        "style": "休闲",
+    },
+    "葬礼": {
+        "occasion": "日常",
+        "scene_type": "葬礼",
+        "formality": 4,
+        "activity_level": 0,
+        "style": "商务",
+    },
+    "商务宴请": {
+        "occasion": "日常",
+        "scene_type": "商务宴请",
+        "formality": 4,
+        "activity_level": 1,
+        "style": "商务",
+    },
+    "客户会议": {
+        "occasion": "通勤",
+        "scene_type": "客户会议",
+        "formality": 3,
+        "activity_level": 0,
+        "style": "商务",
+    },
+    "签约": {
+        "occasion": "通勤",
+        "scene_type": "签约仪式",
+        "formality": 3,
+        "activity_level": 0,
+        "style": "商务",
+    },
+    "演讲": {
+        "occasion": "通勤",
+        "scene_type": "演讲",
+        "formality": 3,
+        "activity_level": 0,
+        "style": "商务",
+    },
+    "答辩": {
+        "occasion": "通勤",
+        "scene_type": "答辩",
+        "formality": 3,
+        "activity_level": 0,
+        "style": "商务",
+    },
+    "汇报": {
+        "occasion": "通勤",
+        "scene_type": "汇报",
+        "formality": 3,
+        "activity_level": 0,
+        "style": "商务",
+    },
+    "培训": {
+        "occasion": "通勤",
+        "scene_type": "培训",
+        "formality": 2,
+        "activity_level": 1,
+        "style": "商务",
+    },
+    "朋友聚会": {
+        "occasion": "日常",
+        "scene_type": "朋友聚会",
+        "formality": 1,
+        "activity_level": 1,
+        "style": "休闲",
+    },
+    "家庭聚会": {
+        "occasion": "日常",
+        "scene_type": "家庭聚会",
+        "formality": 1,
+        "activity_level": 1,
+        "style": "休闲",
+    },
+    "购物": {
+        "occasion": "日常",
+        "scene_type": "购物",
+        "formality": 0,
+        "activity_level": 1,
+        "style": "休闲",
+    },
+    "散步": {
+        "occasion": "日常",
+        "scene_type": "散步",
+        "formality": 0,
+        "activity_level": 2,
+        "style": "休闲",
+    },
+    "打球": {
+        "occasion": "运动",
+        "scene_type": "球类",
+        "formality": 0,
+        "activity_level": 3,
+        "style": "运动",
+    },
+    "周末打球": {
+        "occasion": "运动",
+        "scene_type": "球类",
+        "formality": 0,
+        "activity_level": 3,
+        "style": "运动",
+    },
+    "周末去打球": {
+        "occasion": "运动",
+        "scene_type": "球类",
+        "formality": 0,
+        "activity_level": 3,
+        "style": "运动",
+    },
+    "户外活动": {
+        "occasion": "旅行",
+        "scene_type": "户外活动",
+        "formality": 0,
+        "activity_level": 3,
+        "style": "运动",
+    },
+    "入职": {
+        "occasion": "通勤",
+        "scene_type": "入职",
+        "formality": 3,
+        "activity_level": 0,
+        "style": "商务",
+    },
+    "毕业典礼": {
+        "occasion": "日常",
+        "scene_type": "毕业典礼",
+        "formality": 3,
+        "activity_level": 1,
+        "style": "商务",
+    },
+    "正式活动": {
+        "occasion": "日常",
+        "scene_type": "正式活动",
+        "formality": 4,
+        "activity_level": 1,
+        "style": "商务",
+    },
 }
 
 FORMALITY_WORDS = {
@@ -388,10 +535,15 @@ def resolve_scene(
     matched = None
     for alias in sorted(SCENE_ALIASES, key=len, reverse=True):
         if alias in text:
+            if alias == "运动" and any(
+                marker in text
+                for marker in ("运动风", "运动风格", "运动款", "运动穿搭", "运动装")
+            ):
+                continue
             matched = SCENE_ALIASES[alias]
             break
 
-    if matched:
+    if matched and occasion not in CORE_SCENES:
         scene = dict(matched)
     else:
         base = occasion if occasion in CORE_SCENES else "日常"
@@ -399,11 +551,59 @@ def resolve_scene(
 
     if style:
         scene["style"] = style
+    negative_casual_markers = (
+        "不要休闲",
+        "不想穿休闲",
+        "别休闲",
+        "不穿休闲",
+        "不要休闲风",
+        "不想穿休闲风",
+    )
+    if any(
+        marker in text
+        for marker in negative_casual_markers
+    ) and any(
+        marker in text
+        for marker in ("正式", "商务", "职场")
+    ):
+        scene["style"] = "商务"
+    if scene.get("style") == "商务" and any(
+        marker in text
+        for marker in ("休闲", "舒服", "轻松", "不要太正式", "别太正式")
+    ) and not any(
+        marker in text
+        for marker in negative_casual_markers
+    ):
+        scene["style"] = "休闲"
 
     formality = int(scene.get("formality", 1))
     for level, words in FORMALITY_WORDS.items():
         if any(word in text for word in words):
             formality = max(formality, level)
+    if style == "商务":
+        formal_context = f"{text} {occasion or ''}"
+        if any(word in formal_context for word in FORMALITY_WORDS[3]):
+            formality = max(formality, 3)
+        formality = max(formality, 2)
+    if any(word in text for word in ("正式一点", "正式些", "正式一些", "严肃一点")):
+        formality += 1
+    if any(
+        word in text
+        for word in (
+            "不要太严肃",
+            "不要太正式",
+            "休闲一点",
+            "别太正式",
+            "别太严肃",
+            "轻松一点",
+            "休闲些",
+        )
+    ):
+        formality = max(1, formality - 1)
+    if any(word in text for word in ("不要太正式", "别太正式")):
+        formality = min(formality, 2)
+    if "T恤" in text and "正式" in text:
+        formality = min(formality, 3)
     scene["formality"] = formality
 
     activity_level = int(scene.get("activity_level", 1))
@@ -411,5 +611,11 @@ def resolve_scene(
         if any(word in text for word in words):
             activity_level = max(activity_level, level)
     scene["activity_level"] = activity_level
+
+    if scene.get("scene_type") == "露营" and any(
+        word in text
+        for word in ("徒步", "崎岖", "爬山", "远足", "雨天", "长距离")
+    ):
+        scene["requires_hiking_shoes"] = True
 
     return scene

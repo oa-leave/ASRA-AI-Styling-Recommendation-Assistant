@@ -183,6 +183,42 @@ def test_generate_summary():
     assert "配色协调" in summary
 
 
+def test_generate_summary_marks_missing_shoes_instead_of_core_complete():
+    outfit = {
+        "上衣": {"style": "休闲"},
+        "裤子": {"style": "休闲"},
+    }
+    reasons = ["核心穿搭完整（裤装搭配）"]
+
+    summary = generate_summary(outfit, reasons)
+    assert "核心穿搭完整" not in summary
+    assert "缺少鞋子" in summary
+
+
+def test_generate_summary_uses_shoe_suitability_for_completeness():
+    outfit = {
+        "上衣": {"style": "休闲"},
+        "裤子": {"style": "休闲"},
+        "鞋子": {"name": "白色运动鞋", "style": "运动"},
+    }
+    reasons = ["核心穿搭完整（裤装搭配）"]
+
+    unsuitable_summary = generate_summary(
+        outfit,
+        reasons,
+        shoe_feedback={"status": "unsuitable"},
+    )
+    assert "核心穿搭完整" not in unsuitable_summary
+    assert "鞋子不满足当前场景要求" in unsuitable_summary
+
+    suitable_summary = generate_summary(
+        outfit,
+        reasons,
+        shoe_feedback={"status": "suitable"},
+    )
+    assert "核心穿搭完整" in suitable_summary
+
+
 def test_build_top_outfits_returns_multiple():
     clothes = [
         {
@@ -569,3 +605,163 @@ def test_outfit_compatibility_penalties():
     assert "整体风格不统一" in reasons
     assert "颜色搭配冲突" in reasons
     assert "季节搭配不合理" in reasons
+
+
+def test_build_top_outfits_required_slot_keywords_filter_and_force():
+    clothes = [
+        {
+            "id": 1,
+            "name": "白色衬衫",
+            "category": "上衣",
+            "color": "白色",
+            "style": "商务",
+            "season": "夏季",
+            "score": 90,
+            "reason": [],
+        },
+        {
+            "id": 2,
+            "name": "白色T恤",
+            "category": "上衣",
+            "color": "白色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 100,
+            "reason": [],
+        },
+        {
+            "id": 3,
+            "name": "蓝色裤子",
+            "category": "裤子",
+            "color": "蓝色",
+            "style": "商务",
+            "season": "夏季",
+            "score": 90,
+            "reason": [],
+        },
+    ]
+
+    results = build_top_outfits(
+        clothes,
+        top_n=1,
+        required_slot_keywords={
+            "上衣": ["衬衫"],
+            "裤子": ["裤子"],
+        },
+    )
+    outfit = results[0]["outfit"]
+    assert "上衣" in outfit
+    assert "裤子" in outfit
+    assert outfit["上衣"]["name"] == "白色衬衫"
+    assert outfit["裤子"]["name"] == "蓝色裤子"
+
+
+def test_build_best_outfit_missing_required_slot_returns_empty():
+    clothes = [
+        {
+            "id": 1,
+            "name": "白色T恤",
+            "category": "上衣",
+            "color": "白色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 100,
+            "reason": [],
+        },
+        {
+            "id": 2,
+            "name": "蓝色裤子",
+            "category": "裤子",
+            "color": "蓝色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": [],
+        },
+    ]
+
+    result = build_best_outfit(
+        clothes,
+        required_slot_keywords={"上衣": ["衬衫"]},
+    )
+    assert result["outfit"] == {}
+    assert result["reason"] == ["缺少指定搭配"]
+
+
+def test_build_top_outfits_allowed_slots_limits_scope():
+    clothes = [
+        {
+            "id": 1,
+            "name": "灰色衬衫",
+            "category": "上衣",
+            "color": "灰色",
+            "style": "商务",
+            "season": "夏季",
+            "score": 90,
+            "reason": [],
+        },
+        {
+            "id": 2,
+            "name": "蓝色裤子",
+            "category": "裤子",
+            "color": "蓝色",
+            "style": "商务",
+            "season": "夏季",
+            "score": 90,
+            "reason": [],
+        },
+        {
+            "id": 3,
+            "name": "白色运动鞋",
+            "category": "鞋子",
+            "color": "白色",
+            "style": "休闲",
+            "season": "夏季",
+            "score": 90,
+            "reason": [],
+        },
+    ]
+
+    results = build_top_outfits(
+        clothes,
+        top_n=1,
+        force_slot=["上衣"],
+        allowed_slots=["上衣"],
+    )
+    assert set(results[0]["outfit"].keys()) == {"上衣"}
+
+
+def test_generate_summary_skips_conflicting_memory_style():
+    profile = SimpleNamespace(style="休闲", season="夏季")
+    formal_summary = generate_summary(
+        {},
+        [],
+        profile,
+        current_style="商务",
+    )
+    assert not any(
+        "用户喜欢休闲风格" in item
+        for item in formal_summary
+    )
+
+    casual_summary = generate_summary(
+        {},
+        [],
+        profile,
+        current_style="休闲",
+    )
+    assert any(
+        "用户喜欢休闲风格" in item
+        for item in casual_summary
+    )
+
+
+def test_generate_summary_omits_item_style_when_conflicting():
+    profile = SimpleNamespace(style="休闲", season="夏季")
+    summary = generate_summary(
+        {"上衣": {"style": "休闲", "score": 1}},
+        [],
+        profile,
+        current_style="商务",
+    )
+    assert not any("休闲风格" in item for item in summary)

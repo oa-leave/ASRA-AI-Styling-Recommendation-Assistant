@@ -113,8 +113,9 @@ def test_agent_full_flow():
     )
     assert business_response.status_code == 200
     assert len(business_response.json()["recommendation"]["items"]) >= 1
-    assert any(
-        "偏正式休闲风" in item
+    assert business_response.json()["recommendation"]["summary"]
+    assert not any(
+        "缺少商务风格" in item
         for item in business_response.json()["recommendation"]["summary"]
     )
 

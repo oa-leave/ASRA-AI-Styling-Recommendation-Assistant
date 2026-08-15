@@ -378,6 +378,26 @@ async function loadRecommend() {
   }
 }
 
+async function resetTestData() {
+  if (!confirm("确认清空当前用户的对话、点赞和点踩记录？")) return;
+  try {
+    await requestJson("/feedback/", { method: "DELETE" });
+    await requestJson("/chat/conversations", { method: "DELETE" });
+    state.sessionId = "";
+    localStorage.removeItem("asra_session_id");
+    state.recommendData = null;
+    const chatMessages = $("#chat-messages");
+    if (chatMessages) {
+      chatMessages.innerHTML = "";
+    }
+    ensureWelcome();
+    loadRecommend();
+    showToast("已重置对话和踩赞记录");
+  } catch (error) {
+    showToast(error.message || "重置失败", "error");
+  }
+}
+
 function colorValue(name) {
   const map = {
     白色: "#f5f2ea",
@@ -866,6 +886,7 @@ function init() {
   });
   $("#chat-form").addEventListener("submit", sendChat);
   $("#recommend-btn").addEventListener("click", loadRecommend);
+  $("#reset-test-btn").addEventListener("click", resetTestData);
   $("#recommend-results").addEventListener("click", sendFeedback);
   $("#wardrobe-add-form").addEventListener("submit", addWardrobe);
   $("#wardrobe-upload-form").addEventListener("submit", uploadWardrobe);

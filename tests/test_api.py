@@ -257,7 +257,7 @@ def test_register_login_wardrobe_profile_and_feedback():
             "feedback_type": "dislike",
             "outfit_score": 100,
             "outfit_snapshot": {"颜色": "蓝色"},
-            "reason": ["不喜欢"],
+            "reason": ["不喜欢蓝色"],
         },
     )
     assert dislike_response.status_code == 201

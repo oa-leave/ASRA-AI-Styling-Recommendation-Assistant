@@ -10,6 +10,7 @@ class AgentState(TypedDict, total=False):
     formality: Optional[int]
     activity_level: Optional[int]
     forecast_day: int
+    day_label: Optional[str]
     tool_plan: List[str]
     user_id: int
     weather: Optional[Dict[str, Any]]

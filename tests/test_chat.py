@@ -70,6 +70,11 @@ def test_multi_turn_chat():
     assert "黑色" not in memory_after_avoid.json()["profile"]["favorite_colors"]
     assert "黑色" not in memory_after_avoid.json()["preference_signals"]["favorite_colors"]
 
+    reply_after_avoid = second.json()["reply"]
+    assert "黑色" not in reply_after_avoid["memory"]["profile"]["favorite_colors"]
+    assert "请取消" not in reply_after_avoid["explanation"]
+    assert "本次避开" not in reply_after_avoid["explanation"]
+
     third = client.post(
         "/chat/",
         headers=headers,
@@ -97,3 +102,49 @@ def test_multi_turn_chat():
     assert "黑色" in memory_response.json()["profile"]["favorite_colors"]
     assert "灰色" in memory_response.json()["profile"]["favorite_colors"]
     assert "蓝色" in memory_response.json()["profile"]["favorite_colors"]
+
+
+def test_avoid_color_survives_after_previous_allow_in_same_session():
+    payload = {
+        "email": "chat_avoid_survive@example.com",
+        "username": "chat_avoid_survive",
+        "password": "password123",
+    }
+    client.post("/user/register", json=payload)
+    login = client.post(
+        "/auth/login",
+        data={
+            "username": payload["username"],
+            "password": payload["password"],
+        },
+    )
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "白色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["白色", "黑色", "灰色"],
+            "avoid_colors": [],
+        },
+    )
+
+    session_id = "avoid_survive_test"
+    client.post(
+        "/chat/",
+        headers=headers,
+        json={"session_id": session_id, "message": "要黑色"},
+    )
+    client.post(
+        "/chat/",
+        headers=headers,
+        json={"session_id": session_id, "message": "不要黑色"},
+    )
+
+    profile = client.get("/profile/me", headers=headers).json()
+    assert "黑色" in profile["avoid_colors"]
+    assert "黑色" not in profile["favorite_colors"]

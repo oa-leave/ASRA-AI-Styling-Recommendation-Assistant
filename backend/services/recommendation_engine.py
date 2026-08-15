@@ -95,6 +95,15 @@ def tag_match(item_tags, user_tags):
     return len(set(item_tags) & set(user_tags))
 
 
+def _item_matches_keywords(item, keywords):
+    if not keywords:
+        return True
+    text = (
+        f"{item.get('name', '')} {item.get('category', '')}"
+    ).lower()
+    return any(str(keyword).lower() in text for keyword in keywords)
+
+
 def calculate_clothes_score(clothes, profile, collect_filtered=False):
     filtered_reasons = []
 
@@ -270,7 +279,13 @@ def filter_available_slots(categories, profile, force_slot=None):
     return slots
 
 
-def generate_summary(outfit, reasons, profile=None):
+def generate_summary(
+    outfit,
+    reasons,
+    profile=None,
+    shoe_feedback=None,
+    current_style=None,
+):
     summary = []
     styles = {
         item.get("style")
@@ -279,7 +294,9 @@ def generate_summary(outfit, reasons, profile=None):
     }
 
     if len(styles) == 1:
-        summary.append(f"{next(iter(styles))}风格")
+        style_name = next(iter(styles))
+        if not current_style or current_style == style_name:
+            summary.append(f"{style_name}风格")
     if "整体风格统一" in reasons:
         summary.append("整体风格统一")
     if "颜色搭配协调" in reasons:
@@ -294,10 +311,20 @@ def generate_summary(outfit, reasons, profile=None):
             summary.append("配色协调")
     if profile and getattr(profile, "season", None):
         summary.append(f"适合{profile.season}")
-    if profile and getattr(profile, "style", None):
+    if (
+        profile
+        and getattr(profile, "style", None)
+        and (not current_style or profile.style == current_style)
+    ):
         summary.append(f"用户喜欢{profile.style}风格")
     if any("核心穿搭完整" in reason for reason in reasons):
-        summary.append("核心穿搭完整")
+        shoe_status = (shoe_feedback or {}).get("status")
+        if shoe_status == "suitable":
+            summary.append("核心穿搭完整")
+        elif shoe_status in {"fallback", "unsuitable"}:
+            summary.append("鞋子不满足当前场景要求")
+        else:
+            summary.append("缺少鞋子")
 
     return summary
 
@@ -310,6 +337,8 @@ def build_top_outfits(
     force_slot=None,
     remove_slot=None,
     replace_slot=None,
+    required_slot_keywords=None,
+    allowed_slots=None,
 ):
     categories = {slot: [] for slot in OUTFIT_SLOTS}
     remove_slots = set(remove_slot or [])
@@ -329,13 +358,29 @@ def build_top_outfits(
                 if item.get("style") == style
             ]
 
+    for slot, keywords in (required_slot_keywords or {}).items():
+        if slot in categories:
+            categories[slot] = [
+                item
+                for item in categories[slot]
+                if _item_matches_keywords(item, keywords)
+            ]
+
     for key in OUTFIT_SLOTS:
         if categories[key]:
             categories[key].sort(key=lambda x: x["score"], reverse=True)
             categories[key] = categories[key][:MAX_OUTFIT_CANDIDATES]
 
     available_slots = filter_available_slots(categories, profile, force_slot)
+    if allowed_slots:
+        allowed_set = set(allowed_slots)
+        available_slots = [
+            slot
+            for slot in available_slots
+            if slot in allowed_set
+        ]
     required_slots = set(force_slot or [])
+    required_slots.update((required_slot_keywords or {}).keys())
     if required_slots and not required_slots.issubset(set(available_slots)):
         return [{
             "outfit": {},
@@ -364,7 +409,7 @@ def build_top_outfits(
     return scored_outfits[:top_n]
 
 
-def build_best_outfit(clothes, profile=None):
+def build_best_outfit(clothes, profile=None, required_slot_keywords=None):
     categories = {slot: [] for slot in OUTFIT_SLOTS}
 
     for item in clothes:
@@ -372,12 +417,31 @@ def build_best_outfit(clothes, profile=None):
         if category in categories:
             categories[category].append(item)
 
+    for slot, keywords in (required_slot_keywords or {}).items():
+        if slot in categories:
+            categories[slot] = [
+                item
+                for item in categories[slot]
+                if _item_matches_keywords(item, keywords)
+            ]
+
     for key in OUTFIT_SLOTS:
         if categories[key]:
             categories[key].sort(key=lambda x: x["score"], reverse=True)
             categories[key] = categories[key][:MAX_OUTFIT_CANDIDATES]
 
-    available_slots = filter_available_slots(categories, profile)
+    required_slots = set((required_slot_keywords or {}).keys())
+    available_slots = filter_available_slots(
+        categories,
+        profile,
+        list(required_slots) or None,
+    )
+    if required_slots and not required_slots.issubset(set(available_slots)):
+        return {
+            "outfit": {},
+            "score": 0,
+            "reason": ["缺少指定搭配"],
+        }
 
     if not available_slots:
         final_score, _ = calculate_outfit_score({}, profile)

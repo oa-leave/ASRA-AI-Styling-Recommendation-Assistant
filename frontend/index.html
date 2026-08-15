@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ASRA</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260814">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="app.js?v=20260814"></script>
 </head>
 <body>
   <div id="auth-view" class="auth-view hidden">
@@ -151,6 +151,10 @@
           <button type="button" id="recommend-btn" class="primary">
             <i data-lucide="wand-2"></i>
             <span>生成推荐</span>
+          </button>
+          <button type="button" id="reset-test-btn" class="secondary">
+            <i data-lucide="rotate-ccw"></i>
+            <span>重置对话/反馈</span>
           </button>
         </div>
         <div id="recommend-results" class="cards-grid"></div>

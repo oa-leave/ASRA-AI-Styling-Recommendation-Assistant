@@ -6,6 +6,30 @@ from typing import Any, Dict, List, Optional
 
 RULES_PATH = Path(__file__).resolve().parent.parent / "data" / "fashion_rules.json"
 
+OCCASION_TAGS = {
+    "日常",
+    "通勤",
+    "商务",
+    "约会",
+    "运动",
+    "旅行",
+    "户外",
+    "登山",
+    "正式",
+    "婚礼",
+    "宴会",
+    "面试",
+    "会议",
+    "客户",
+    "出差",
+    "校园",
+    "居家",
+    "逛街",
+    "聚会",
+    "健身",
+    "跑步",
+}
+
 
 def load_fashion_rules() -> List[Dict[str, Any]]:
     if not RULES_PATH.exists():
@@ -39,7 +63,11 @@ def retrieve_fashion_rules(
 
     scored = []
     for rule in load_fashion_rules():
-        overlap = len(query_tags & set(rule.get("tags", [])))
+        rule_tags = set(rule.get("tags", []))
+        rule_occasions = rule_tags & OCCASION_TAGS
+        if rule_occasions and not (rule_occasions & query_tags):
+            continue
+        overlap = len(query_tags & rule_tags)
         if overlap:
             scored.append((overlap, rule))
 

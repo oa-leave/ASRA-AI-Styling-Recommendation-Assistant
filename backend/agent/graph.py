@@ -42,6 +42,7 @@ def build_agent_graph(db: Session):
             "formality": plan.get("formality"),
             "activity_level": plan.get("activity_level"),
             "forecast_day": plan.get("forecast_day", 0),
+            "day_label": plan.get("day_label"),
             "tool_plan": plan["tool_plan"],
         }
 

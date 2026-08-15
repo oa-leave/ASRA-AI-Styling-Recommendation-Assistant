@@ -1,6 +1,7 @@
 """Agent 决策模块：决定这次请求需要调用哪些工具。"""
 import json
 import os
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -20,14 +21,39 @@ def _extract_city(query: str, fallback: Optional[str]) -> Optional[str]:
 
 def _extract_occasion(query: str, fallback: Optional[str]) -> Optional[str]:
     """从自然语言里提取场景，例如“约会”“通勤”“运动”。"""
+    sport_style_markers = ("运动风", "运动风格", "运动款", "运动穿搭", "运动装")
     for occasion in SCENE_MAP:
         if occasion in query:
+            if occasion == "运动" and any(
+                marker in query
+                for marker in sport_style_markers
+            ):
+                continue
             return occasion
     return fallback
 
 
 def _extract_style(query: str, fallback: Optional[str]) -> Optional[str]:
     """从自然语言里提取风格偏好。"""
+    casual_markers = ("休闲", "舒服", "轻松", "不要太正式", "别太正式")
+    negative_casual_markers = (
+        "不要休闲",
+        "不想穿休闲",
+        "别休闲",
+        "不穿休闲",
+        "不要休闲风",
+        "不想穿休闲风",
+    )
+    if any(
+        marker in query
+        for marker in negative_casual_markers
+    ) and any(
+        marker in query
+        for marker in ("正式", "商务", "职场")
+    ):
+        return "商务"
+    if any(marker in query for marker in casual_markers):
+        return "休闲"
     if "正式" in query:
         return "商务"
     for style in STYLES:
@@ -41,7 +67,19 @@ def _extract_forecast_day(query: str) -> int:
         return 2
     if "明天" in query or "明日" in query:
         return 1
+    if "周末" in query:
+        return (5 - datetime.now().weekday()) % 7
     return 0
+
+
+def _extract_day_label(query: str) -> Optional[str]:
+    if "周末" in query:
+        return "周末"
+    if "后天" in query:
+        return "后天"
+    if "明天" in query or "明日" in query:
+        return "明天"
+    return None
 
 
 def deterministic_decision(
@@ -67,6 +105,7 @@ def deterministic_decision(
         "formality": resolved.get("formality"),
         "activity_level": resolved.get("activity_level"),
         "forecast_day": _extract_forecast_day(text),
+        "day_label": _extract_day_label(text),
         "tool_plan": ["weather", "scene", "memory", "knowledge", "recommend"],
         "source": "deterministic",
     }
@@ -143,6 +182,7 @@ def decide_agent_plan(
             "formality": resolved.get("formality"),
             "activity_level": resolved.get("activity_level"),
             "forecast_day": _extract_forecast_day(query or ""),
+            "day_label": _extract_day_label(query or ""),
             "tool_plan": data.get("tool_plan") or [
                 "weather",
                 "scene",

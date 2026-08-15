@@ -136,7 +136,9 @@ def get_weather(
             params["daily"] = "temperature_2m_max,temperature_2m_min,weather_code"
             params["forecast_days"] = max(forecast_day + 1, 2)
         else:
-            params["current"] = "temperature_2m,weather_code,wind_speed_10m"
+            params["current"] = (
+                "temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m"
+            )
 
         forecast_response = requests.get(
             "https://api.open-meteo.com/v1/forecast",
@@ -172,6 +174,7 @@ def get_weather(
         weather_code = current.get("weather_code")
         if weather_code is None:
             weather_code = current.get("weathercode")
+        humidity = current.get("relative_humidity_2m")
 
         return {
             "city": city,
@@ -179,6 +182,7 @@ def get_weather(
             "weather": _weather_description(int(weather_code))
             if weather_code is not None
             else "未知",
+            "humidity": round(float(humidity)) if humidity is not None else None,
             "season": _current_season(),
             "source": "api",
         }

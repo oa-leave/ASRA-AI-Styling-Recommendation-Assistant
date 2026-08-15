@@ -34,9 +34,17 @@ def scene_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
         state.get("occasion"),
         state.get("style"),
     )
-    scene["scene_type"] = resolved.get("scene_type")
-    scene["formality"] = resolved.get("formality")
-    scene["activity_level"] = resolved.get("activity_level")
+    scene["scene_type"] = state.get("scene_type") or resolved.get("scene_type")
+    scene["formality"] = (
+        state.get("formality")
+        if state.get("formality") is not None
+        else resolved.get("formality")
+    )
+    scene["activity_level"] = (
+        state.get("activity_level")
+        if state.get("activity_level") is not None
+        else resolved.get("activity_level")
+    )
     if state.get("style"):
         scene["style"] = state["style"]
         if state["style"] == "商务" and scene.get("occasion_tags") == ["日常"]:
@@ -45,11 +53,28 @@ def scene_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
 
 
 def memory_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
-    """记忆工具：读取用户画像、历史和反馈。"""
+    """记忆工具：读取用户画像、历史和反馈，并过滤长期回避色。"""
     memory = get_user_memory(db, state["user_id"])
+    profile = memory.get("profile")
+    if profile:
+        avoid_colors = set(profile.get("avoid_colors") or [])
+        profile["avoid_colors"] = sorted(avoid_colors)
+        profile["favorite_colors"] = [
+            color
+            for color in (profile.get("favorite_colors") or [])
+            if color not in avoid_colors
+        ]
+        if profile.get("favorite_color") in avoid_colors:
+            profile["favorite_color"] = None
+        preference_signals = memory.get("preference_signals") or {}
+        preference_signals["favorite_colors"] = [
+            color
+            for color in (preference_signals.get("favorite_colors") or [])
+            if color not in avoid_colors
+        ]
     return {
         "memory": memory,
-        "profile": memory.get("profile"),
+        "profile": profile,
     }
 
 

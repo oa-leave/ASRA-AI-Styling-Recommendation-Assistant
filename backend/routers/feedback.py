@@ -1,3 +1,4 @@
+import re
 from typing import Any, List
 
 from fastapi import APIRouter, Depends
@@ -12,6 +13,19 @@ from database.models import RecommendationFeedback, User, UserProfile
 
 
 router = APIRouter(prefix="/feedback", tags=["推荐反馈"])
+
+DISLIKE_COLOR_MARKERS = (
+    "不喜欢",
+    "不要",
+    "没相中",
+    "讨厌",
+    "别",
+    "避免",
+    "不考虑",
+    "不用",
+    "不接受",
+    "不想",
+)
 
 
 def _collect_text_values(value: Any) -> List[str]:
@@ -40,12 +54,15 @@ def _update_profile_from_feedback(
     if profile is None:
         return
 
-    texts = _collect_text_values(payload.outfit_snapshot)
+    texts = _collect_text_values(payload.reason)
     if payload.feedback_type == "dislike":
         avoid_colors = set(profile.avoid_colors or [])
         for text in texts:
             for color in COLOR_GROUPS:
-                if color in text:
+                if re.search(
+                    rf"(?:{'|'.join(DISLIKE_COLOR_MARKERS)}).{{0,8}}{re.escape(color)}",
+                    text,
+                ):
                     avoid_colors.add(color)
         profile.favorite_colors = [
             color
@@ -101,3 +118,20 @@ def list_feedback(
         .order_by(RecommendationFeedback.id.desc())
         .all()
     )
+
+
+@router.delete("/")
+def clear_feedback(
+    db: Session = Depends(get_database),
+    current_user: User = Depends(get_current_user),
+):
+    deleted = (
+        db.query(RecommendationFeedback)
+        .filter(RecommendationFeedback.user_id == current_user.id)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {
+        "message": "反馈已清空",
+        "deleted_count": deleted,
+    }
