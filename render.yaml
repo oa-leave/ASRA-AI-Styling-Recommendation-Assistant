@@ -1,3 +1,7 @@
+databases:
+  - name: asra-db
+    plan: free
+
 services:
   - type: web
     name: asra
@@ -10,7 +14,9 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: "sqlite:////tmp/asra.db"
+        fromDatabase:
+          name: asra-db
+          property: connectionString
       - key: VISION_ENABLED
         value: "false"
       - key: USE_WEATHER_API

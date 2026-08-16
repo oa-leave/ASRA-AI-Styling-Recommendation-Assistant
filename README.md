@@ -31,7 +31,7 @@ Agent 根据 `tool_plan` 按顺序动态调用工具，不依赖固定流程。
 - Python 3.11
 - FastAPI
 - SQLAlchemy
-- SQLite
+- SQLite / PostgreSQL
 - LangGraph
 - JWT 鉴权
 - Open-Meteo 天气接口
@@ -245,11 +245,11 @@ ASRA 已提供 `Dockerfile` 和 `render.yaml`，可部署到 Render Free。
 
 ```text
 VISION_ENABLED=false
-DATABASE_URL=sqlite:////tmp/asra.db
+DATABASE_URL=<由 render.yaml 自动关联 PostgreSQL>
 SECRET_KEY=<由 Render 自动生成>
 ```
 
-注意：免费实例使用 SQLite 时，数据会在实例重建后重置；需要持久化数据时改用 Render PostgreSQL。
+注意：`render.yaml` 会自动创建 Render PostgreSQL，演示数据可持久化；本地开发仍使用 SQLite。
 
 ## Demo
 
