@@ -208,6 +208,12 @@ intent_accuracy: 1.0
 GET /evaluation/metrics
 ```
 
+在线 Demo 可通过播种脚本生成一组真实指标：
+
+```powershell
+& '.\venv\Scripts\python.exe' scripts\seed_demo_metrics.py
+```
+
 当前指标由评估测试提供确定性基准：
 
 | 指标 | 测试值 |
