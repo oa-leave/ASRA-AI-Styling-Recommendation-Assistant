@@ -1,4 +1,4 @@
-"""多轮对话服务：会话创建、消息保存、简单调整意图解析。"""
+"""对话服务。"""
 import re
 import uuid
 from typing import Any, Dict, List, Optional
@@ -179,7 +179,7 @@ def list_messages(
 
 
 def parse_adjustments(message: str, context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """从用户消息中解析调整意图：回避颜色、槽位风格、强制槽位、移除槽位。"""
+    """解析当前请求的调整意图。"""
     context = dict(context or {})
     avoid_colors = set(context.get("avoid_colors") or [])
     slot_style = dict(context.get("slot_style") or {})

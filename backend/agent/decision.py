@@ -1,4 +1,4 @@
-"""Agent 决策模块：决定这次请求需要调用哪些工具。"""
+"""Agent 决策模块。"""
 import json
 import os
 from datetime import datetime
@@ -12,7 +12,7 @@ from backend.services.recommendation_config import STYLES
 
 
 def _extract_city(query: str, fallback: Optional[str]) -> Optional[str]:
-    """从自然语言里提取城市，例如“明天上海约会” -> 上海。"""
+    """从文本提取城市。"""
     for city in CITY_WEATHER:
         if city in query:
             return city
@@ -20,7 +20,7 @@ def _extract_city(query: str, fallback: Optional[str]) -> Optional[str]:
 
 
 def _extract_occasion(query: str, fallback: Optional[str]) -> Optional[str]:
-    """从自然语言里提取场景，例如“约会”“通勤”“运动”。"""
+    """从文本提取场景。"""
     sport_style_markers = ("运动风", "运动风格", "运动款", "运动穿搭", "运动装")
     for occasion in SCENE_MAP:
         if occasion in query:
@@ -86,7 +86,7 @@ def deterministic_decision(
     occasion: Optional[str],
     style: Optional[str],
 ) -> Dict[str, Any]:
-    """没有 LLM Key 时的规则解析，保证 Agent 始终可用。"""
+    """规则解析入口。"""
     text = query or ""
     city = _extract_city(text, city) or "沈阳"
     raw_occasion = _extract_occasion(text, occasion)
@@ -115,7 +115,7 @@ def decide_agent_plan(
     occasion: Optional[str] = None,
     style: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """LLM 决策入口；没有 Key 或调用失败时回退到规则解析。"""
+    """LLM 决策入口，失败时回退规则解析。"""
     api_key = os.getenv("LLM_API_KEY")
     if not api_key:
         return deterministic_decision(query, city, occasion, style)

@@ -1,4 +1,4 @@
-"""视觉识别服务：优先调用本地 OpenAI 兼容视觉模型，失败时回退到 HSV + 文件名规则。"""
+"""视觉识别服务。"""
 import base64
 import re
 from io import BytesIO
@@ -748,7 +748,7 @@ def _heuristic_vision_result(
     image_path: Path,
     original_name: str = "",
 ) -> Dict[str, Any]:
-    """从图片提取颜色并生成待确认的衣物标签。"""
+    """提取衣物颜色和标签。"""
     rgb = _dominant_rgb(image_path)
     color = _color_name_from_hsv(rgb)
     raw_name = Path(original_name).stem.strip()
@@ -781,7 +781,7 @@ def extract_vision_result(
     image_path: Path,
     original_name: str = "",
 ) -> Dict[str, Any]:
-    """优先使用真实视觉模型，失败时回退到启发式识别。"""
+    """视觉识别入口，失败时回退启发式规则。"""
     model_result = recognize_with_vision_model(image_path, original_name)
     if model_result:
         return model_result

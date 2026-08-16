@@ -1,4 +1,4 @@
-"""Scene-aware fallback advice without changing the core scoring engine."""
+"""场景约束与反馈。"""
 from typing import Any, Dict, List, Optional
 
 from backend.services.recommendation_config import CATEGORY_TO_SLOT

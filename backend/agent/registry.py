@@ -1,4 +1,4 @@
-"""工具注册表：Agent 根据 tool_plan 按顺序动态调用工具。"""
+"""Agent 工具注册表。"""
 from typing import Any, Callable, Dict
 
 from sqlalchemy.orm import Session
@@ -53,7 +53,7 @@ def scene_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
 
 
 def memory_tool(state: Dict[str, Any], db: Session) -> Dict[str, Any]:
-    """记忆工具：读取用户画像、历史和反馈，并过滤长期回避色。"""
+    """记忆工具：读取用户画像和反馈。"""
     memory = get_user_memory(db, state["user_id"])
     profile = memory.get("profile")
     if profile:
