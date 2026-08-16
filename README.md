@@ -1,5 +1,7 @@
 # ASRA
 
+[![CI](https://github.com/oa-leave/ASRA-AI-Styling-Recommendation-Assistant-/actions/workflows/ci.yml/badge.svg)](https://github.com/oa-leave/ASRA-AI-Styling-Recommendation-Assistant-/actions/workflows/ci.yml)
+
 AI Styling Recommendation Assistant
 
 ASRA 是一个基于 LangGraph 的 AI 穿搭推荐 Agent。用户通过自然语言描述城市、场景、风格和单品约束，ASRA 会动态决定调用天气、场景、记忆、知识和推荐工具，生成可解释的穿搭方案。
