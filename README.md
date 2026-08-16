@@ -206,6 +206,17 @@ intent_accuracy: 1.0
 GET /evaluation/metrics
 ```
 
+当前指标由评估测试提供确定性基准：
+
+| 指标 | 测试值 |
+| --- | --- |
+| 推荐成功率 | 0.9 |
+| 约束满足率 | 0.9 |
+| 风格命中率 | 1.0 |
+| 无推荐原因分布 | `style_not_found: 1` |
+
+说明：基准为 10 笔业务请求，其中 9 笔成功、1 笔运动风格无结果。旧版推荐历史没有 `constraints/outcome` 字段，接口只统计新版本产生的请求；随着新请求累积，`/evaluation/metrics` 会返回真实累计值。
+
 ## Demo
 
 > 待补充：`docs/demo.gif` 或在线演示地址。
