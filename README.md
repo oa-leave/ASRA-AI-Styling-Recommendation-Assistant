@@ -257,7 +257,9 @@ SECRET_KEY=<由 Render 自动生成>
 
 <https://asra-8f01.onrender.com/docs>
 
-> 免费实例首次访问可能需要等待冷启动；`docs/demo.gif` 可后续补充。
+![ASRA Demo](docs/asra-demo.gif)
+
+> 免费实例首次访问可能需要等待冷启动。
 
 ## 启动
 
