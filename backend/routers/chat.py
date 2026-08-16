@@ -16,6 +16,7 @@ from backend.services.conversation_service import (
 )
 from backend.utils.database import get_database
 from backend.utils.dependencies import get_current_user
+from backend.utils.rate_limit import agent_limiter
 from database.models import ConversationMessage, ConversationSession, User, UserProfile
 
 
@@ -28,6 +29,8 @@ def chat(
     db: Session = Depends(get_database),
     current_user: User = Depends(get_current_user),
 ):
+    if not agent_limiter.allow(f"user:{current_user.id}"):
+        raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
     try:
         session = get_or_create_session(db, current_user.id, payload.session_id)
     except ValueError:

@@ -70,7 +70,6 @@ def _update_profile_from_feedback(
             if color not in avoid_colors
         ]
         profile.avoid_colors = list(avoid_colors)
-        db.commit()
     elif payload.feedback_type == "like":
         style_tags = set(profile.style_tags or [])
         for text in texts:
@@ -78,7 +77,6 @@ def _update_profile_from_feedback(
                 if style in text:
                     style_tags.add(style)
         profile.style_tags = list(style_tags)
-        db.commit()
 
 
 @router.post("/", response_model=FeedbackResponse, status_code=201)
@@ -95,9 +93,9 @@ def create_feedback(
         reason=payload.reason,
     )
     db.add(feedback)
+    _update_profile_from_feedback(db, current_user.id, payload)
     db.commit()
     db.refresh(feedback)
-    _update_profile_from_feedback(db, current_user.id, payload)
     record_event(
         db,
         current_user.id,

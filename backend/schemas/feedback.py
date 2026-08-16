@@ -5,9 +5,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class FeedbackCreate(BaseModel):
     feedback_type: str = Field(pattern="^(like|dislike)$")
-    outfit_score: int = 0
+    outfit_score: int = Field(default=0, ge=-1000000, le=1000000)
     outfit_snapshot: Dict[str, Any] = {}
-    reason: List[str] = []
+    reason: List[str] = Field(default_factory=list, max_length=50)
 
 
 class FeedbackResponse(BaseModel):

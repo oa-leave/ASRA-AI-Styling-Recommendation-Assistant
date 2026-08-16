@@ -1058,6 +1058,7 @@ def generate_recommendation(
         "required_colors": required_colors or [],
         "allowed_item_keywords": allowed_item_keywords or [],
         "allowed_colors": allowed_colors or [],
+        "avoid_colors": sorted(avoid_colors),
         "style_requested": style_requested,
         "formal_requested": formal_requested,
         "business_requested": business_requested,

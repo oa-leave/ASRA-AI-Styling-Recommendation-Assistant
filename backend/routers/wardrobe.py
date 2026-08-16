@@ -23,6 +23,23 @@ from database.models import ClothingRecognitionTask, User, Wardrobe
 
 router = APIRouter(prefix="/wardrobe", tags=["数字衣柜"])
 
+MAX_UPLOAD_SIZE = 5 * 1024 * 1024
+UPLOAD_CHUNK_SIZE = 1024 * 1024
+
+
+async def _read_upload_limited(file: UploadFile) -> bytes:
+    if file.size is not None and file.size > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail="图片文件不能超过5MB")
+    content = b""
+    while True:
+        chunk = await file.read(UPLOAD_CHUNK_SIZE)
+        if not chunk:
+            break
+        content += chunk
+        if len(content) > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=413, detail="图片文件不能超过5MB")
+    return content
+
 
 @router.post("/add", status_code=201)
 def add_clothes(
@@ -64,7 +81,7 @@ async def upload_clothes_image(
     current_user: User = Depends(get_current_user),
 ):
     original_name = file.filename or "clothes.jpg"
-    content = await file.read()
+    content = await _read_upload_limited(file)
     try:
         validate_image_content(content)
     except ValueError:
@@ -245,7 +262,7 @@ async def upload_and_confirm_image(
 ):
     """上传图片后自动识别并直接写入衣柜，无需手动复制结果。"""
     original_name = file.filename or "clothes.jpg"
-    content = await file.read()
+    content = await _read_upload_limited(file)
     try:
         validate_image_content(content)
     except ValueError:

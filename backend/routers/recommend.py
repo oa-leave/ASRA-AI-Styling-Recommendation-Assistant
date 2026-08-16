@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.agent.scene_lexicon import resolve_scene
@@ -8,6 +8,7 @@ from backend.services.memory_service import get_user_memory
 from backend.services.recommend_service import generate_recommendation
 from backend.utils.database import get_database
 from backend.utils.dependencies import get_current_user
+from backend.utils.rate_limit import agent_limiter
 from database.models import ConversationSession, User, UserProfile
 
 
@@ -29,6 +30,8 @@ def recommend(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_database),
 ):
+    if not agent_limiter.allow(f"user:{current_user.id}"):
+        raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
     context = _latest_conversation_context(db, current_user.id) or {}
     city = context.get("city") or "沈阳"
     occasion = context.get("occasion") or "日常"

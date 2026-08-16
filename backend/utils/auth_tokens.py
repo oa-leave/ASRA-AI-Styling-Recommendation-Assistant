@@ -29,18 +29,33 @@ def create_refresh_token(db: Session, user_id: int) -> str:
     return token
 
 
-def get_valid_refresh_token(
+def consume_refresh_token(
     db: Session,
     raw_token: str,
 ) -> Optional[RefreshToken]:
+    """Atomically revoke a refresh token, returning it only when this call wins."""
+    token_hash = _hash_token(raw_token)
     row = (
         db.query(RefreshToken)
-        .filter(RefreshToken.token_hash == _hash_token(raw_token))
+        .filter(RefreshToken.token_hash == token_hash)
         .first()
     )
     if row is None or row.revoked_at is not None:
         return None
-    if row.expires_at < utcnow():
+
+    updated = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.id == row.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+        .update(
+            {RefreshToken.revoked_at: utcnow()},
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    if updated != 1:
         return None
     return row
 

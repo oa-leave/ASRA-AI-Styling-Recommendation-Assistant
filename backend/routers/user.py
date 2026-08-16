@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.schemas.user import UserCreate
@@ -27,7 +28,11 @@ def register(
         hashed_password=hash_password(user.password),
     )
     database.add(new_user)
-    database.commit()
+    try:
+        database.commit()
+    except IntegrityError:
+        database.rollback()
+        raise HTTPException(status_code=409, detail="用户名或邮箱已经存在")
     database.refresh(new_user)
     record_event(database, new_user.id, "user_register")
     return {

@@ -85,7 +85,14 @@ def build_deterministic_explanation(
 ) -> str:
     weather_text = "天气未知"
     if weather:
-        weather_text = f"{weather.get('temperature')}℃{weather.get('weather')}"
+        temperature = weather.get("temperature")
+        weather_description = weather.get("weather")
+        if temperature is not None and weather_description:
+            weather_text = f"{temperature}℃{weather_description}"
+        elif temperature is not None:
+            weather_text = f"{temperature}℃"
+        elif weather_description:
+            weather_text = weather_description
     day_label = day_label or ("后天" if forecast_day >= 2 else ("明天" if forecast_day == 1 else "今天"))
     scene_label = occasion
     if scene and scene.get("scene_type"):

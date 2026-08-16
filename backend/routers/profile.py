@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.schemas.profile import (
@@ -41,7 +42,11 @@ def create_profile(
         season=profile.season,
     )
     db.add(new_profile)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="用户画像已经存在")
     db.refresh(new_profile)
     record_event(db, current_user.id, "profile_create")
     return new_profile

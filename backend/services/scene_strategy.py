@@ -637,7 +637,7 @@ def apply_scene_constraints(
             if item.get("style") in {"商务", "正式"}
         ]
 
-    if formal_requested and scene.get("style") == "商务":
+    elif formal_requested and scene.get("style") == "商务":
         explicit_preferred = [
             keyword
             for keyword in (preferred_keywords or [])

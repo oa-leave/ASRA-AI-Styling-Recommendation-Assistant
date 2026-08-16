@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.agent.explain import generate_llm_explanation
@@ -8,6 +8,7 @@ from backend.services.conversation_service import parse_adjustments
 from backend.services.explanation_filter import filter_text
 from backend.utils.database import get_database
 from backend.utils.dependencies import get_current_user
+from backend.utils.rate_limit import agent_limiter
 from database.models import User
 
 
@@ -20,6 +21,8 @@ def agent_recommend(
     db: Session = Depends(get_database),
     current_user: User = Depends(get_current_user),
 ):
+    if not agent_limiter.allow(f"user:{current_user.id}"):
+        raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
     graph = build_agent_graph(db)
     conversation_context = parse_adjustments(payload.query or "", {})
     conversation_context["request_avoid_colors"] = list(
@@ -56,6 +59,13 @@ def agent_recommend(
         ),
     )
 
+    memory = result.get("memory") or {}
+    reply_memory = {
+        "profile": memory.get("profile"),
+        "feedback_summary": memory.get("feedback_summary"),
+        "preference_signals": memory.get("preference_signals"),
+    }
+
     return {
         "code": 200,
         "message": "Agent推荐成功",
@@ -65,7 +75,7 @@ def agent_recommend(
         "occasion": result.get("occasion"),
         "tool_plan": result.get("tool_plan"),
         "recommendation": result.get("recommendation"),
-        "memory": result.get("memory"),
+        "memory": reply_memory,
         "knowledge_rules": result.get("knowledge_rules"),
         "knowledge_text": knowledge_text,
         "explanation": explanation,

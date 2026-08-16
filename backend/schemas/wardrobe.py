@@ -6,20 +6,20 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # 添加衣服 Schema
 # ==================================
 class WardrobeCreate(BaseModel):
-    image_path: Optional[str] = None
-    recognition_status: Optional[str] = "manual"
+    image_path: Optional[str] = Field(default=None, max_length=255)
+    recognition_status: Optional[str] = Field(default="manual", max_length=30)
     # ==========================
     # 基础信息
     # ==========================
     # 衣服名称
     # 示例:
     # 白色T恤
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     # 分类
     # 示例:
     # 上衣
     # 裤子
-    category: str
+    category: str = Field(min_length=1, max_length=50)
     # ==========================
     # 旧字段
     # 保留兼容 V4.3
@@ -27,15 +27,15 @@ class WardrobeCreate(BaseModel):
     # 颜色
     # 示例:
     # 白色
-    color: str
+    color: str = Field(min_length=1, max_length=50)
     # 风格
     # 示例:
     # 日系简约
-    style: str
+    style: str = Field(min_length=1, max_length=50)
     # 季节
     # 示例:
     # 春季
-    season: str
+    season: str = Field(min_length=1, max_length=50)
     # ==========================
     # V4.4 新增标签
     # ==========================
@@ -46,7 +46,7 @@ class WardrobeCreate(BaseModel):
     # "白色",
     # "基础色"
     # ]
-    color_tags: List[str] = Field(default_factory=list)
+    color_tags: List[str] = Field(default_factory=list, max_length=20)
     # 风格标签
     # 示例:
     #
@@ -54,7 +54,7 @@ class WardrobeCreate(BaseModel):
     # "日系简约",
     # "休闲"
     # ]
-    style_tags: List[str] = Field(default_factory=list)
+    style_tags: List[str] = Field(default_factory=list, max_length=20)
     # 版型标签
     # 示例:
     #
@@ -62,8 +62,8 @@ class WardrobeCreate(BaseModel):
     # "宽松",
     # "基础款"
     # ]
-    fit_tags: List[str] = Field(default_factory=list)
-    occasion_tags: List[str] = Field(default_factory=list)
+    fit_tags: List[str] = Field(default_factory=list, max_length=20)
+    occasion_tags: List[str] = Field(default_factory=list, max_length=20)
 
 # ==================================
 # 返回衣服数据

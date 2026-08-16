@@ -34,6 +34,9 @@ def _required_satisfied(history: RecommendationHistory) -> bool:
     required = constraints.get("required_item_keywords") or []
     excluded = constraints.get("excluded_item_keywords") or []
     required_colors = constraints.get("required_colors") or []
+    allowed = constraints.get("allowed_item_keywords") or []
+    allowed_colors = constraints.get("allowed_colors") or []
+    avoid_colors = constraints.get("avoid_colors") or []
     names = _names_text(history)
 
     if any(keyword and keyword not in names for keyword in required):
@@ -45,9 +48,28 @@ def _required_satisfied(history: RecommendationHistory) -> bool:
         str(item.get("color") or "")
         for item in _items(history)
     ]
+    item_texts = [
+        f"{item.get('name') or ''} {item.get('slot') or ''}"
+        for item in _items(history)
+    ]
+    if allowed and not all(
+        any(keyword in text for keyword in allowed)
+        for text in item_texts
+    ):
+        return False
     if any(
         color and not any(color in item_color for item_color in item_colors)
         for color in required_colors
+    ):
+        return False
+    if any(
+        color and any(color in item_color for item_color in item_colors)
+        for color in avoid_colors
+    ):
+        return False
+    if allowed_colors and not all(
+        any(color in item_color for item_color in item_colors)
+        for color in allowed_colors
     ):
         return False
 
@@ -135,7 +157,7 @@ def compute_metrics(
         "style_hit_rate": (
             round(style_hits / len(style_records), 4)
             if style_records
-            else 0
+            else None
         ),
         "no_recommendation_reasons": dict(
             no_recommendation_reasons

@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from backend.schemas.auth import LogoutRequest, RefreshRequest, TokenResponse
 from backend.utils.auth_tokens import (
     clear_login_attempts,
+    consume_refresh_token,
     create_refresh_token,
-    get_valid_refresh_token,
     is_login_locked,
     record_login_attempt,
     revoke_refresh_token,
@@ -62,12 +62,10 @@ def refresh_token(
     payload: RefreshRequest,
     database: Session = Depends(get_database),
 ):
-    token_row = get_valid_refresh_token(database, payload.refresh_token)
+    token_row = consume_refresh_token(database, payload.refresh_token)
     if token_row is None:
         raise HTTPException(status_code=401, detail="刷新令牌无效或已过期")
 
-    token_row.revoked_at = utcnow()
-    database.commit()
     access_token = create_access_token({"user_id": token_row.user_id})
     refresh_token = create_refresh_token(database, token_row.user_id)
     return {
