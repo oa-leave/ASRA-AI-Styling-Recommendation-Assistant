@@ -49,6 +49,11 @@ def agent_recommend(
         scene=result.get("scene"),
         day_label=result.get("day_label"),
         query=result.get("query"),
+        explicit_style=bool(
+            (result.get("conversation_context") or {}).get(
+                "style_requested"
+            )
+        ),
     )
 
     return {

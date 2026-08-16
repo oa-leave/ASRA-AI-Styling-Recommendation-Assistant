@@ -304,9 +304,29 @@ def test_build_memory_text_uses_active_style_when_conflict():
             "feedback_summary": {},
         },
         active_style="商务",
+        explicit_style=True,
     )
     assert "本次要求：商务风格" in text
     assert "用户偏好：休闲风格" not in text
+
+
+def test_build_memory_text_keeps_profile_style_when_not_explicit():
+    text = build_memory_text(
+        {
+            "profile": {
+                "style": "休闲",
+                "favorite_color": "白色",
+                "favorite_colors": ["白色"],
+                "avoid_colors": [],
+            },
+            "recent_history": [],
+            "feedback_summary": {},
+        },
+        active_style="商务",
+        explicit_style=False,
+    )
+    assert "用户偏好：休闲风格" in text
+    assert "本次要求：商务风格" not in text
 
 
 def test_deterministic_explanation_answers_can_wear_question():

@@ -149,6 +149,7 @@ def get_user_memory(
 def build_memory_text(
     memory: Dict[str, Any],
     active_style: Optional[str] = None,
+    explicit_style: bool = False,
 ) -> str:
     parts = []
 
@@ -171,7 +172,7 @@ def build_memory_text(
             )
         )
         profile_style = profile.get("style") or "未知"
-        if active_style and profile_style != active_style:
+        if explicit_style and active_style and profile_style != active_style:
             preference_text = f"本次要求：{active_style}风格"
         else:
             preference_text = f"用户偏好：{profile_style}风格"

@@ -81,6 +81,7 @@ def build_deterministic_explanation(
     scene: Optional[Dict[str, Any]] = None,
     day_label: Optional[str] = None,
     query: Optional[str] = None,
+    explicit_style: bool = False,
 ) -> str:
     weather_text = "天气未知"
     if weather:
@@ -116,6 +117,7 @@ def build_deterministic_explanation(
         build_memory_text(
             memory,
             active_style=(scene or {}).get("style"),
+            explicit_style=explicit_style,
         )
         if memory
         else ""
@@ -147,6 +149,7 @@ def generate_llm_explanation(
     scene: Optional[Dict[str, Any]] = None,
     day_label: Optional[str] = None,
     query: Optional[str] = None,
+    explicit_style: bool = False,
 ) -> str:
     api_key = os.getenv("LLM_API_KEY")
     if not api_key:
@@ -161,6 +164,7 @@ def generate_llm_explanation(
             scene,
             day_label,
             query,
+            explicit_style,
         )
 
     base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
@@ -171,6 +175,7 @@ def generate_llm_explanation(
             build_memory_text(
                 memory,
                 active_style=(scene or {}).get("style"),
+                explicit_style=explicit_style,
             )
             if memory
             else ""
@@ -223,4 +228,5 @@ def generate_llm_explanation(
             scene,
             day_label,
             query,
+            explicit_style,
         )
