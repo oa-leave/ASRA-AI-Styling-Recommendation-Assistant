@@ -251,7 +251,11 @@ SECRET_KEY=<由 Render 自动生成>
 
 ## Demo
 
-> 待补充：`docs/demo.gif` 或在线演示地址。
+在线 API 演示（Render Free）：
+
+<https://asra-8f01.onrender.com/docs>
+
+> 免费实例首次访问可能需要等待冷启动；`docs/demo.gif` 可后续补充。
 
 ## 启动
 
