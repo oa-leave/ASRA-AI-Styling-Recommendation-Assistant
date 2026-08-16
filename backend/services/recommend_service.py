@@ -845,6 +845,8 @@ def generate_recommendation(
         or bool(item_conflicts)
         or bool(style_conflicts)
     )
+    evaluation_item_count = 0
+    evaluation_no_reason = None
     best_shoe_feedback = None
 
     if no_matching_items:
@@ -901,6 +903,20 @@ def generate_recommendation(
             message = f"缺少{requested_style}风格衣物"
         else:
             message = "没有符合条件的衣物"
+        if (
+            style_conflict_message
+            or item_conflict_message
+            or color_conflict_message
+        ):
+            evaluation_no_reason = "conflict"
+        elif missing_color_message:
+            evaluation_no_reason = "missing_color"
+        elif missing_required_message:
+            evaluation_no_reason = "missing_item"
+        elif requested_style:
+            evaluation_no_reason = "style_not_found"
+        else:
+            evaluation_no_reason = "no_suitable_items"
         outfit_results = []
         best = {
             "outfit": {},
@@ -976,6 +992,7 @@ def generate_recommendation(
         best_shoe_feedback = build_shoe_feedback(scene, best["outfit"])
 
         items = _build_items(best["outfit"])
+        evaluation_item_count = len(items)
         summary = generate_summary(
             best["outfit"],
             best["reason"],
@@ -1035,6 +1052,22 @@ def generate_recommendation(
         context["weather"] = weather
     if scene is not None:
         context["scene"] = scene
+    context["constraints"] = {
+        "required_item_keywords": required_item_keywords or [],
+        "excluded_item_keywords": exclude_item_keywords or [],
+        "required_colors": required_colors or [],
+        "allowed_item_keywords": allowed_item_keywords or [],
+        "allowed_colors": allowed_colors or [],
+        "style_requested": style_requested,
+        "formal_requested": formal_requested,
+        "business_requested": business_requested,
+        "requested_season": requested_season,
+        "requested_style": (
+            (conversation_context or {}).get("style")
+            if style_requested
+            else None
+        ),
+    }
 
     history = RecommendationHistory(
         user_id=user_id,
@@ -1047,6 +1080,11 @@ def generate_recommendation(
             "scene": scene,
             "scene_feedback": scene_feedback,
             "shoe_feedback": shoe_feedback,
+            "outcome": {
+                "has_recommendation": evaluation_item_count > 0,
+                "item_count": evaluation_item_count,
+                "no_reason": evaluation_no_reason,
+            },
         },
     )
     db.add(history)

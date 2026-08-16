@@ -168,7 +168,7 @@ Memory 由三部分组成：
 ## 测试结果
 
 ```text
-272 passed
+275 passed
 ```
 
 覆盖范围：
@@ -182,6 +182,30 @@ Memory 由三部分组成：
 - 聊天多轮记忆
 - 前端渲染
 
+## Agent 评估
+
+ASRA 内置 Golden Set 评估用例，共 20 条，覆盖必选单品、排除单品、颜色硬约束、风格冲突、正式/商务/运动风格、长袖/短袖和户外场景。
+
+运行评估：
+
+```powershell
+& '.\venv\Scripts\python.exe' scripts\evaluate_agent.py
+```
+
+当前结果：
+
+```text
+total_cases: 20
+passed_cases: 20
+intent_accuracy: 1.0
+```
+
+推荐结果指标可通过接口查看：
+
+```text
+GET /evaluation/metrics
+```
+
 ## Demo
 
 > 待补充：`docs/demo.gif` 或在线演示地址。
@@ -189,8 +213,8 @@ Memory 由三部分组成：
 ## 启动
 
 ```powershell
-cd C:\Users\m1594\Desktop\ASRA
-& 'C:\Users\m1594\Desktop\ASRA\venv\Scripts\uvicorn.exe' backend.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend --reload-dir database
+cd 你的项目目录
+& '.\venv\Scripts\uvicorn.exe' backend.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend --reload-dir database
 ```
 
 打开：
@@ -219,5 +243,5 @@ LLM_MODEL=gpt-4o-mini
 ## 测试命令
 
 ```powershell
-& 'C:\Users\m1594\Desktop\ASRA\venv\Scripts\python.exe' -m pytest -q
+& '.\venv\Scripts\python.exe' -m pytest -q
 ```

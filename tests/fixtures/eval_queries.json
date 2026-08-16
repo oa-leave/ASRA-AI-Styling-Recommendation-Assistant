@@ -1,0 +1,203 @@
+[
+  {
+    "id": "01_interview_shirt_pants_no_black",
+    "query": "明天面试，只推荐衬衫和裤子，不要黑色",
+    "city": "沈阳",
+    "occasion": "面试",
+    "expect": {
+      "required_item_keywords": ["衬衫", "裤子"],
+      "avoid_colors": ["黑色"],
+      "style": "商务"
+    }
+  },
+  {
+    "id": "02_daily_shirt_pants",
+    "query": "今天日常穿衬衫和裤子",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "required_item_keywords": ["衬衫", "裤子"],
+      "style": "休闲"
+    }
+  },
+  {
+    "id": "03_only_top",
+    "query": "只推荐上衣",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "required_item_keywords": ["上衣"],
+      "style": "休闲"
+    }
+  },
+  {
+    "id": "04_only_pants",
+    "query": "只推荐裤子",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "required_item_keywords": ["裤子"],
+      "style": "休闲"
+    }
+  },
+  {
+    "id": "05_only_shirt_pants",
+    "query": "只推荐衬衫和裤子",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "required_item_keywords": ["衬衫", "裤子"],
+      "style": "休闲"
+    }
+  },
+  {
+    "id": "06_no_pants_shirt_shoes",
+    "query": "不要裤子，只推荐衬衫和鞋子",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "required_item_keywords": ["衬衫", "鞋子"],
+      "exclude_item_keywords": ["裤子"],
+      "style": "休闲"
+    }
+  },
+  {
+    "id": "07_daily_sport_style_top",
+    "query": "今天日常穿，要运动风，只推荐上衣",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "allowed_item_keywords": ["上衣"],
+      "style": "运动",
+      "scene_type": "日常"
+    }
+  },
+  {
+    "id": "08_sport_style_top",
+    "query": "只推荐运动风上衣",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "allowed_item_keywords": ["上衣"],
+      "style": "运动"
+    }
+  },
+  {
+    "id": "09_blue_top_no_black",
+    "query": "只推荐蓝色上衣，不要黑色",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "allowed_item_keywords": ["上衣"],
+      "required_colors": ["蓝色"],
+      "avoid_colors": ["黑色"]
+    }
+  },
+  {
+    "id": "10_item_conflict",
+    "query": "我只要上衣，不要上衣",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "item_conflicts": ["上衣"]
+    }
+  },
+  {
+    "id": "11_style_conflict",
+    "query": "要休闲风，不要休闲风",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "style_conflicts": ["休闲风"]
+    }
+  },
+  {
+    "id": "12_business_style",
+    "query": "要商务风",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "style": "商务",
+      "business_requested": true
+    }
+  },
+  {
+    "id": "13_client_formal",
+    "query": "明天见客户，正式一点",
+    "city": "沈阳",
+    "occasion": "客户",
+    "expect": {
+      "style": "商务",
+      "formal_requested": true
+    }
+  },
+  {
+    "id": "14_wedding_formal_top",
+    "query": "周末参加婚礼，只推荐上衣，要正式风格",
+    "city": "沈阳",
+    "occasion": "婚礼",
+    "expect": {
+      "allowed_item_keywords": ["上衣"],
+      "style": "商务",
+      "formal_requested": true
+    }
+  },
+  {
+    "id": "15_long_sleeve_shirt",
+    "query": "只推荐长袖衬衫",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "required_item_keywords": ["长袖", "衬衫"]
+    }
+  },
+  {
+    "id": "16_summer_long_sleeve",
+    "query": "夏天只推荐长袖",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "required_item_keywords": ["长袖"],
+      "requested_season": "夏季"
+    }
+  },
+  {
+    "id": "17_no_long_sleeve",
+    "query": "不要长袖",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "exclude_item_keywords": ["长袖"]
+    }
+  },
+  {
+    "id": "18_gray_top_no_long_sleeve",
+    "query": "只推荐灰色上衣，不要长袖",
+    "city": "沈阳",
+    "occasion": "日常",
+    "expect": {
+      "allowed_item_keywords": ["上衣"],
+      "required_colors": ["灰色"],
+      "exclude_item_keywords": ["长袖"]
+    }
+  },
+  {
+    "id": "19_outdoor_top",
+    "query": "去户外/露营，只推荐上衣",
+    "city": "沈阳",
+    "occasion": "露营",
+    "expect": {
+      "allowed_item_keywords": ["上衣"],
+      "scene_type": "露营"
+    }
+  },
+  {
+    "id": "20_fitness",
+    "query": "我要去健身",
+    "city": "沈阳",
+    "occasion": "健身",
+    "expect": {
+      "scene_type": "健身"
+    }
+  }
+]
