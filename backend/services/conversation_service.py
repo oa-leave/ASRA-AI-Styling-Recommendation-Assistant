@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from backend.agent.tools import SCENE_MAP
-from backend.services.recommendation_config import COLOR_GROUPS
+from backend.services.recommendation_config import COLOR_GROUPS, STYLES
 from database.models import ConversationMessage, ConversationSession
 
 
@@ -32,7 +32,7 @@ ITEM_EXCLUDE_KEYWORDS = [
 
 ITEM_EXCLUDE_ALIASES = {
     "短袖": ["短袖", "T恤"],
-    "长袖": ["长袖", "衬衫", "衬衣", "卫衣"],
+    "长袖": ["长袖"],
     "T恤": ["T恤", "短袖"],
     "卫衣": ["卫衣", "长袖"],
     "衬衫": ["衬衫", "衬衣"],
@@ -296,7 +296,7 @@ def parse_adjustments(message: str, context: Optional[Dict[str, Any]]) -> Dict[s
             rf"(?:{'|'.join(negative_markers)}).{{0,2}}{re.escape(keyword)}"
         )
         strict_item_regex = re.compile(
-            rf"(?:{'|'.join(strict_item_markers)}).{{0,2}}{re.escape(keyword)}"
+            rf"(?:{'|'.join(strict_item_markers)}).{{0,4}}{re.escape(keyword)}"
         )
         strict_matches = list(strict_item_regex.finditer(message))
         outside_question = [
@@ -357,13 +357,26 @@ def parse_adjustments(message: str, context: Optional[Dict[str, Any]]) -> Dict[s
     if "运动" in message or "日系" in message:
         explicit_style = True
 
-    if any(word in message for word in casual_markers):
+    def _style_is_negated(style: str) -> bool:
+        return any(
+            marker in message
+            for marker in (
+                f"不要{style}",
+                f"不想穿{style}",
+                f"别{style}",
+                f"不穿{style}",
+                f"不要{style}风",
+                f"不想穿{style}风",
+            )
+        )
+
+    if any(word in message for word in casual_markers) and not _style_is_negated("休闲"):
         context["style"] = "休闲"
-    elif any(word in message for word in formal_markers):
+    elif any(word in message for word in formal_markers) and not _style_is_negated("商务"):
         context["style"] = "商务"
-    elif "运动" in message:
+    elif "运动" in message and not _style_is_negated("运动"):
         context["style"] = "运动"
-    elif "日系" in message:
+    elif "日系" in message and not _style_is_negated("日系"):
         context["style"] = "日系"
     elif not explicit_style:
         for occasion in SCENE_MAP:
@@ -379,56 +392,61 @@ def parse_adjustments(message: str, context: Optional[Dict[str, Any]]) -> Dict[s
         for marker in ("不要太正式", "别太正式", "不太正式")
     )
     context["formal_requested"] = formal_requested
+    business_requested = any(
+        marker in message
+        for marker in ("商务风", "商务风格", "要商务")
+    ) and not any(
+        marker in message
+        for marker in ("不要商务", "不想穿商务", "别商务", "不穿商务")
+    )
+    context["business_requested"] = business_requested
 
-    casual_positive_markers = (
-        "休闲风",
-        "休闲风格",
-        "要休闲",
-        "穿休闲",
-        "喜欢休闲",
+    season_markers = {
+        "春天": "春季",
+        "夏天": "夏季",
+        "秋天": "秋季",
+        "冬天": "冬季",
+        "春秋": "春秋",
+    }
+    requested_season = next(
+        (
+            value
+            for key, value in season_markers.items()
+            if key in message
+        ),
+        None,
     )
-    casual_negative_markers = (
-        "不要休闲",
-        "不想穿休闲",
-        "别休闲",
-        "不穿休闲",
-        "不要休闲风",
-        "不想穿休闲风",
-    )
-    formal_positive_markers = (
-        "正式风",
-        "正式风格",
-        "要正式",
-        "商务风",
-        "商务风格",
-        "要商务",
-    )
-    formal_negative_markers = (
-        "不要正式",
-        "不想穿正式",
-        "别正式",
-        "不穿正式",
-        "不要正式风",
-        "不要商务风",
-        "不要商务",
-        "不想穿商务",
-    )
-    if any(
-        marker in message
-        for marker in casual_positive_markers
-    ) and any(
-        marker in message
-        for marker in casual_negative_markers
-    ):
-        style_conflicts.add("休闲风")
-    if any(
-        marker in message
-        for marker in formal_positive_markers
-    ) and any(
-        marker in message
-        for marker in formal_negative_markers
-    ):
-        style_conflicts.add("正式风")
+    context["requested_season"] = requested_season
+
+    conflict_styles = list(STYLES) + ["正式"]
+    for style in conflict_styles:
+        positive_markers = (
+            f"{style}风",
+            f"{style}风格",
+            f"要{style}",
+            f"穿{style}",
+            f"只推荐{style}",
+        )
+        negative_markers = (
+            f"不要{style}",
+            f"不想穿{style}",
+            f"别{style}",
+            f"不穿{style}",
+            f"不要{style}风",
+            f"不想穿{style}风",
+            f"不要{style}风格",
+        )
+        positive_text = message
+        for negative_marker in negative_markers:
+            positive_text = positive_text.replace(negative_marker, "")
+        if any(
+            marker in positive_text
+            for marker in positive_markers
+        ) and any(
+            marker in message
+            for marker in negative_markers
+        ):
+            style_conflicts.add(f"{style}风")
 
     if (
         "裤子" in message

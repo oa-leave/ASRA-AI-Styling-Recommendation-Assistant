@@ -136,6 +136,34 @@ def test_strict_sport_style_keeps_sport_top():
     assert result == scored
 
 
+def test_strict_sport_style_does_not_trust_style_tags():
+    scored = [
+        {
+            "name": "灰色衬衫",
+            "category": "上衣",
+            "fit_tags": [],
+            "style_tags": ["运动"],
+            "style": "休闲",
+            "score": 10,
+        }
+    ]
+    scene = {
+        "style": "运动",
+        "formality": 1,
+        "scene_type": "日常",
+        "occasion_tags": ["日常"],
+    }
+
+    result = apply_scene_constraints(
+        scored,
+        scene,
+        preferred_keywords=["上衣"],
+        allowed_slots={"上衣"},
+        strict_style=True,
+    )
+    assert result == []
+
+
 def test_strict_high_formal_style_removes_casual_shirt():
     items = [
         {
@@ -177,6 +205,151 @@ def test_strict_high_formal_style_removes_casual_shirt():
     )
     names = [item["name"] for item in result]
     assert names == ["白色衬衫"]
+
+
+def test_medium_formal_allows_casual_shirt_with_business_tag():
+    items = [
+        {
+            "name": "白色长袖衬衣",
+            "category": "上衣",
+            "fit_tags": [],
+            "style": "休闲",
+            "occasion_tags": ["商务会议", "工作"],
+            "score": 10,
+        }
+    ]
+    scene = {
+        "style": "商务",
+        "formality": 3,
+        "scene_type": "客户拜访",
+        "occasion_tags": ["客户", "通勤"],
+    }
+
+    result = apply_scene_constraints(
+        items,
+        scene,
+        preferred_keywords=["上衣"],
+        allowed_slots={"上衣"},
+        formal_requested=True,
+    )
+    names = [item["name"] for item in result]
+    assert names == ["白色长袖衬衣"]
+
+
+def test_medium_formal_keeps_explicit_tshirt():
+    items = [
+        {
+            "name": "白色T恤",
+            "category": "上衣",
+            "fit_tags": [],
+            "style": "休闲",
+            "occasion_tags": ["日常"],
+            "score": 10,
+        },
+        {
+            "name": "白色长袖衬衣",
+            "category": "上衣",
+            "fit_tags": [],
+            "style": "休闲",
+            "occasion_tags": ["商务会议"],
+            "score": 10,
+        },
+    ]
+    scene = {
+        "style": "商务",
+        "formality": 3,
+        "scene_type": "客户拜访",
+        "occasion_tags": ["客户", "通勤"],
+    }
+
+    result = apply_scene_constraints(
+        items,
+        scene,
+        preferred_keywords=["T恤"],
+        allowed_slots={"上衣"},
+        formal_requested=True,
+    )
+    names = [item["name"] for item in result]
+    assert "白色T恤" in names
+
+
+def test_medium_formal_business_constraints_keep_explicit_tshirt():
+    items = [
+        {
+            "name": "白色T恤",
+            "category": "上衣",
+            "fit_tags": [],
+            "style": "休闲",
+            "occasion_tags": ["日常"],
+            "score": 10,
+        },
+        {
+            "name": "白色长袖衬衣",
+            "category": "上衣",
+            "fit_tags": [],
+            "style": "休闲",
+            "occasion_tags": ["商务会议"],
+            "score": 10,
+        },
+        {
+            "name": "蓝色裤子",
+            "category": "裤子",
+            "fit_tags": [],
+            "style": "修身",
+            "occasion_tags": ["正式"],
+            "score": 10,
+        },
+        {
+            "name": "蓝色西装",
+            "category": "西装",
+            "fit_tags": [],
+            "style": "商务",
+            "occasion_tags": ["商务"],
+            "score": 10,
+        },
+    ]
+    scene = {
+        "style": "商务",
+        "formality": 3,
+        "scene_type": "客户拜访",
+        "occasion_tags": ["客户", "通勤"],
+    }
+
+    result = apply_scene_constraints(
+        items,
+        scene,
+        preferred_keywords=["T恤"],
+        formal_requested=True,
+    )
+    names = [item["name"] for item in result]
+    assert "白色T恤" in names
+
+
+def test_high_formal_does_not_allow_casual_shirt_with_business_tag():
+    items = [
+        {
+            "name": "白色长袖衬衣",
+            "category": "上衣",
+            "fit_tags": [],
+            "style": "休闲",
+            "occasion_tags": ["商务会议", "婚礼"],
+            "score": 10,
+        }
+    ]
+    scene = {
+        "style": "商务",
+        "formality": 4,
+        "scene_type": "婚礼",
+        "occasion_tags": ["婚礼"],
+    }
+
+    result = apply_scene_constraints(
+        items,
+        scene,
+        preferred_keywords=["上衣"],
+        formal_requested=True,
+    )
+    assert result == []
 
 
 def test_outdoor_style_removes_casual_top():

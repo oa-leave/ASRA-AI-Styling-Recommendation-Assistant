@@ -23,3 +23,10 @@ def test_filename_heuristics():
     assert _infer_style("商务西装.jpg") == "商务"
     assert _infer_fit("宽松衬衫.jpg") == "宽松"
     assert _infer_occasion("通勤衬衫.jpg") == ["通勤"]
+
+
+def test_filename_heuristics_recognize_more_styles():
+    assert _infer_style("复古上衣.jpg") == "复古"
+    assert _infer_style("学院风卫衣.jpg") == "学院"
+    assert _infer_style("简约T恤.jpg") == "简约"
+    assert _infer_style("新中式外套.jpg") == "新中式"

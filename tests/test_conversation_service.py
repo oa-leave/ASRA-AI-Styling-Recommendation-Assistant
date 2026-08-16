@@ -181,10 +181,34 @@ def test_parse_only_top_sets_allowed_top():
     assert "上衣" in context["allowed_item_keywords"]
 
 
+def test_parse_only_sport_style_top_sets_allowed_top():
+    context = parse_adjustments("只推荐运动风上衣", {})
+    assert "上衣" in context["allowed_item_keywords"]
+    assert context["style"] == "运动"
+
+
+def test_parse_only_long_sleeve_shirt_keeps_both_constraints():
+    context = parse_adjustments("只推荐长袖衬衫", {})
+    assert "长袖" in context["required_item_keywords"]
+    assert "衬衫" in context["required_item_keywords"]
+
+
+def test_parse_requested_season():
+    context = parse_adjustments("冬天只推荐短袖", {})
+    assert context["requested_season"] == "冬季"
+
+
 def test_parse_no_shoes_only_top():
     context = parse_adjustments("不要鞋子，只推荐上衣", {})
     assert "鞋子" in context["exclude_item_keywords"]
     assert "上衣" in context["allowed_item_keywords"]
+
+
+def test_parse_no_long_sleeve_does_not_exclude_all_shirts():
+    context = parse_adjustments("不要长袖", {})
+    assert "长袖" in context["exclude_item_keywords"]
+    assert "衬衫" not in context["exclude_item_keywords"]
+    assert "衬衣" not in context["exclude_item_keywords"]
 
 
 def test_business_style_only_top_does_not_set_slot_style():
@@ -194,6 +218,21 @@ def test_business_style_only_top_does_not_set_slot_style():
     )
     assert context["slot_style"] == {}
     assert context["style_requested"] is True
+
+
+def test_parse_business_style_sets_business_requested():
+    context = parse_adjustments("要商务风", {})
+    assert context["business_requested"] is True
+
+
+def test_parse_customer_tshirt_formal_keeps_tshirt_requirement():
+    context = parse_adjustments(
+        "明天见客户，我想穿T恤，但要正式一点",
+        {},
+    )
+    assert "T恤" in context["required_item_keywords"]
+    assert "T恤" in context["preferred_item_keywords"]
+    assert context["formal_requested"] is True
 
 
 def test_scene_style_from_occasion_is_not_explicit_request():
@@ -238,3 +277,28 @@ def test_parse_contradictory_style_detects_conflict():
         {},
     )
     assert "休闲风" in context["style_conflicts"]
+
+
+def test_parse_contradictory_sport_style_detects_conflict():
+    context = parse_adjustments(
+        "只推荐运动风上衣，不要运动风",
+        {},
+    )
+    assert "运动风" in context["style_conflicts"]
+
+
+def test_parse_no_sport_style_does_not_create_conflict():
+    context = parse_adjustments(
+        "只推荐上衣，不要运动风",
+        {},
+    )
+    assert context["style_conflicts"] == []
+    assert context.get("style") != "运动"
+
+
+def test_parse_contradictory_style_detects_all_styles():
+    context = parse_adjustments(
+        "要日系风，不要日系风",
+        {},
+    )
+    assert "日系风" in context["style_conflicts"]

@@ -394,8 +394,8 @@ input:focus {
 .chat-messages {
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 18px;
+  gap: 8px;
+  padding: 12px;
   min-height: 540px;
   max-height: 580px;
   overflow: auto;
@@ -404,8 +404,8 @@ input:focus {
 .message {
   max-width: 82%;
   border-radius: 10px;
-  padding: 12px 14px;
-  line-height: 1.55;
+  padding: 8px 10px;
+  line-height: 1.4;
 }
 
 .message.user {
@@ -429,6 +429,28 @@ input:focus {
 }
 
 .message-content {
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.assistant-block + .assistant-block {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.assistant-block strong {
+  display: inline-block;
+  margin-right: 4px;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.assistant-block span {
+  display: inline;
+  font-size: 14px;
+  line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
 }

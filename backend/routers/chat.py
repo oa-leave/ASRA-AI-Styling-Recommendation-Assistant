@@ -41,6 +41,7 @@ def chat(
         or context.get("question_item_keywords")
         or context.get("allowed_colors")
         or context.get("required_colors")
+        or context.get("style_requested")
     )
     persistent_preference_request = bool(
         context.get("required_item_keywords")
@@ -131,6 +132,7 @@ def chat(
             "allowed_colors",
             "style_requested",
             "formal_requested",
+            "business_requested",
             "required_colors",
             "color_conflicts",
             "item_conflicts",
@@ -144,10 +146,14 @@ def chat(
                 key,
                 {} if key in {"replace_slot", "slot_style"} else [],
             )
+        context["style"] = previous_context.get("style")
+        context["requested_season"] = previous_context.get("requested_season")
     elif item_constraint_request:
         previous_avoid = set(previous_context.get("avoid_colors") or [])
         removed_now = set(context.get("removed_avoid_colors") or [])
         context["avoid_colors"] = sorted(previous_avoid - removed_now)
+        context["style"] = previous_context.get("style")
+        context["requested_season"] = previous_context.get("requested_season")
         for key in (
             "liked_colors",
             "removed_avoid_colors",
@@ -163,6 +169,7 @@ def chat(
             "allowed_colors",
             "style_requested",
             "formal_requested",
+            "business_requested",
             "required_colors",
             "color_conflicts",
             "item_conflicts",

@@ -256,11 +256,55 @@ function appendMessage(role, text) {
   const container = $("#chat-messages");
   const node = document.createElement("div");
   node.className = `message ${role}`;
+  const contentHtml = role === "assistant" ? renderAssistantMessage(text) : esc(text);
   node.innerHTML = `
     <span class="message-meta">${role === "user" ? "我" : "ASRA"}</span>
-    <span class="message-content">${esc(text)}</span>`;
+    <span class="message-content">${contentHtml}</span>`;
   container.appendChild(node);
   container.scrollTop = container.scrollHeight;
+}
+
+function assistantBlock(label, body) {
+  const cleanBody = String(body || "").trim().replace(/^[：:]\s*/, "");
+  return `<div class="assistant-block"><strong>${esc(label)}：</strong><span>${esc(cleanBody)}</span></div>`;
+}
+
+function renderMainSection(section) {
+  const recIndex = section.indexOf("，推荐：");
+  const reasonIndex = section.indexOf("，理由：");
+  if (recIndex === -1) {
+    return assistantBlock("推荐结果", section);
+  }
+  const sceneText = section.slice(0, recIndex);
+  const recText = section.slice(
+    recIndex + 3,
+    reasonIndex === -1 ? undefined : reasonIndex,
+  );
+  const reasonText = reasonIndex === -1 ? "" : section.slice(reasonIndex + 3);
+  return [
+    sceneText.trim() ? assistantBlock("场景 / 天气", sceneText) : "",
+    recText.trim() ? assistantBlock("推荐单品", recText) : "",
+    reasonText.trim() ? assistantBlock("理由", reasonText) : "",
+  ].join("");
+}
+
+function renderAssistantMessage(text) {
+  const sections = String(text || "").split(/(?= 记忆：| 穿搭知识：| 提示：)/);
+  return sections
+    .filter((section) => section.trim())
+    .map((section) => {
+      if (section.startsWith(" 记忆：")) {
+        return assistantBlock("记忆", section.slice(3));
+      }
+      if (section.startsWith(" 穿搭知识：")) {
+        return assistantBlock("穿搭知识", section.slice(5));
+      }
+      if (section.startsWith(" 提示：")) {
+        return assistantBlock("提示", section.slice(3));
+      }
+      return renderMainSection(section);
+    })
+    .join("");
 }
 
 function messageContentText(content) {

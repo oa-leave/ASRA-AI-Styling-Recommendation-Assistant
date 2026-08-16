@@ -334,22 +334,29 @@ def _matches_strict_formal_style(item: Dict[str, Any]) -> bool:
     return item.get("style") in {"商务", "正式"}
 
 
-def _matches_formal_request_style(item: Dict[str, Any]) -> bool:
+def _formal_tags_for_scene(scene: Optional[Dict[str, Any]]) -> set:
+    scene_type = (scene or {}).get("scene_type") or ""
+    if "客户" in scene_type or "商务" in scene_type or "会议" in scene_type:
+        return {"商务会议", "工作", "商务", "会议", "客户", "正式"}
+    if "面试" in scene_type:
+        return {"工作", "面试", "商务", "正式"}
+    return {"正式", "商务", "工作", "商务会议", "面试", "客户", "会议"}
+
+
+def _matches_formal_request_style(
+    item: Dict[str, Any],
+    scene: Optional[Dict[str, Any]] = None,
+) -> bool:
     if item.get("style") in {"商务", "正式"}:
         return True
-    if _slot_for_item(item) == "上衣":
+    scene_type = (scene or {}).get("scene_type") or ""
+    if _slot_for_item(item) == "上衣" and (
+        not scene_type
+        or scene_type in STRICT_FORMAL_SCENE_TYPES
+        or scene_type not in MEDIUM_FORMAL_SCENE_TYPES
+    ):
         return False
-    formal_tags = {
-        "正式",
-        "商务",
-        "婚礼",
-        "宴会",
-        "会议",
-        "客户",
-        "工作",
-        "面试",
-        "商务会议",
-    }
+    formal_tags = _formal_tags_for_scene(scene)
     return bool(set(item.get("occasion_tags") or []) & formal_tags)
 
 
@@ -360,6 +367,20 @@ STRICT_FORMAL_SCENE_TYPES = {
     "正式活动",
     "毕业典礼",
     "商务宴会",
+}
+
+MEDIUM_FORMAL_SCENE_TYPES = {
+    "客户拜访",
+    "客户会议",
+    "商务会谈",
+    "面试",
+    "会议",
+    "普通通勤",
+    "通勤",
+    "汇报",
+    "签约",
+    "答辩",
+    "入职",
 }
 
 
@@ -587,6 +608,7 @@ def apply_scene_constraints(
     allowed_slots: Optional[set] = None,
     strict_style: bool = False,
     formal_requested: bool = False,
+    business_requested: bool = False,
 ) -> List[Dict[str, Any]]:
     if not scored_items or not scene:
         return scored_items
@@ -608,6 +630,13 @@ def apply_scene_constraints(
             preferred_keywords,
         )
 
+    if business_requested and scene.get("style") == "商务":
+        scored_items = [
+            item
+            for item in scored_items
+            if item.get("style") in {"商务", "正式"}
+        ]
+
     if formal_requested and scene.get("style") == "商务":
         explicit_preferred = [
             keyword
@@ -618,7 +647,7 @@ def apply_scene_constraints(
             item
             for item in scored_items
             if (
-                _matches_formal_request_style(item)
+                _matches_formal_request_style(item, scene)
                 or _matches_preferred_item(item, explicit_preferred)
             )
         ]

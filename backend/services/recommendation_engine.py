@@ -95,13 +95,31 @@ def tag_match(item_tags, user_tags):
     return len(set(item_tags) & set(user_tags))
 
 
-def _item_matches_keywords(item, keywords):
-    if not keywords:
-        return True
+ITEM_MATCH_ALIASES = {
+    "衬衫": ["衬衫", "衬衣"],
+    "T恤": ["T恤", "短袖"],
+    "西装": ["西装", "西服", "西装外套"],
+    "裤子": ["裤子", "裤"],
+    "裙子": ["裙子", "半身裙"],
+    "鞋子": ["鞋子", "鞋"],
+}
+
+
+def _keyword_matches_item(item, keyword):
     text = (
         f"{item.get('name', '')} {item.get('category', '')}"
     ).lower()
-    return any(str(keyword).lower() in text for keyword in keywords)
+    aliases = ITEM_MATCH_ALIASES.get(keyword, [keyword])
+    return any(str(alias).lower() in text for alias in aliases)
+
+
+def _item_matches_keywords(item, keywords):
+    if not keywords:
+        return True
+    return any(
+        _keyword_matches_item(item, keyword)
+        for keyword in keywords
+    )
 
 
 def calculate_clothes_score(clothes, profile, collect_filtered=False):
@@ -363,7 +381,10 @@ def build_top_outfits(
             categories[slot] = [
                 item
                 for item in categories[slot]
-                if _item_matches_keywords(item, keywords)
+                if all(
+                    _item_matches_keywords(item, [keyword])
+                    for keyword in keywords
+                )
             ]
 
     for key in OUTFIT_SLOTS:
@@ -422,7 +443,10 @@ def build_best_outfit(clothes, profile=None, required_slot_keywords=None):
             categories[slot] = [
                 item
                 for item in categories[slot]
-                if _item_matches_keywords(item, keywords)
+                if all(
+                    _item_matches_keywords(item, [keyword])
+                    for keyword in keywords
+                )
             ]
 
     for key in OUTFIT_SLOTS:

@@ -115,6 +115,111 @@ def test_vision_model_parses_loose_json_and_english_aliases(tmp_path, monkeypatc
     assert result["style"] == "运动"
 
 
+def test_vision_model_style_tags_promote_to_style(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", True)
+    path = _image(tmp_path / "item.jpg")
+
+    class LooseResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "message": {
+                    "content": (
+                        '{"name": "运动上衣",'
+                        '"category": "上衣",'
+                        '"color": "White",'
+                        '"style_tags": ["Athletic"],'
+                        '"season": "Summer",'
+                        '"fit_tags": ["Standard"]}'
+                    )
+                }
+            }
+
+    monkeypatch.setattr(
+        "backend.services.vision_service.requests.post",
+        lambda *args, **kwargs: LooseResponse(),
+    )
+
+    result = extract_vision_result(path, "item.jpg")
+    assert result["style"] == "运动"
+    assert "运动" in result["style_tags"]
+
+
+def test_vision_model_normalizes_sport_jacket(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", True)
+    path = _image(tmp_path / "jacket.jpg")
+
+    class LooseResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "message": {
+                    "content": (
+                        '{"name": "修身立领运动拉链外套",'
+                        '"category": "运动上衣",'
+                        '"color": "鼠尾草绿",'
+                        '"style": "修身运动风",'
+                        '"season": "春季",'
+                        '"color_tags": ["浅绿色", "鼠尾草绿"],'
+                        '"style_tags": ["运动风", "休闲", "拉链"],'
+                        '"fit_tags": ["修身", "常规"],'
+                        '"occasion_tags": ["日常", "瑜伽", "健身", "通勤"]}'
+                    )
+                }
+            }
+
+    monkeypatch.setattr(
+        "backend.services.vision_service.requests.post",
+        lambda *args, **kwargs: LooseResponse(),
+    )
+
+    result = extract_vision_result(path, "jacket.jpg")
+    assert result["category"] == "上衣"
+    assert result["style"] == "运动"
+    assert "运动" in result["style_tags"]
+    assert "拉链" not in result["style_tags"]
+    assert "修身" in result["fit_tags"]
+    assert "瑜伽" in result["occasion_tags"]
+    assert "健身" in result["occasion_tags"]
+    assert "外套" in result["name"]
+
+
+def test_vision_model_replaces_non_clothing_name(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "vision_enabled", True)
+    path = _image(tmp_path / "photo.jpg")
+
+    class LooseResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "message": {
+                    "content": (
+                        '{"name": "女性",'
+                        '"category": "内搭",'
+                        '"color": "绿色",'
+                        '"style": "厚层",'
+                        '"style_tags": ["厚层"],'
+                        '"season": "春季"}'
+                    )
+                }
+            }
+
+    monkeypatch.setattr(
+        "backend.services.vision_service.requests.post",
+        lambda *args, **kwargs: LooseResponse(),
+    )
+
+    result = extract_vision_result(path, "photo.jpg")
+    assert "女性" not in result["name"]
+    assert result["style"] == "休闲"
+
+
 def test_t_shirt_name_overrides_innerwear_category(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "vision_enabled", True)
     path = _image(tmp_path / "t-shirt.jpg")

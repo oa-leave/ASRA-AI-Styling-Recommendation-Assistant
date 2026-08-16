@@ -112,6 +112,7 @@ REQUIRED_ITEM_ALIASES = {
 
 REQUIRED_ITEM_TO_SLOT = {
     "上衣": "上衣",
+    "长袖": "上衣",
     "衬衫": "上衣",
     "T恤": "上衣",
     "短袖": "上衣",
@@ -188,12 +189,15 @@ def _apply_required_item_keywords(
         matching = [
             item
             for item in slot_items
-            if any(_matches_required_keyword(item, keyword) for keyword in keywords)
+            if all(
+                _matches_required_keyword(item, keyword)
+                for keyword in keywords
+            )
         ]
         for keyword in keywords:
             if not any(
                 _matches_required_keyword(item, keyword)
-                for item in slot_items
+                for item in matching
             ):
                 missing.append(keyword)
         if not matching:
@@ -210,10 +214,7 @@ def _apply_required_item_keywords(
                     item.get("category"),
                 )
                 != slot
-                or any(
-                    _matches_required_keyword(item, keyword)
-                    for keyword in keywords
-                )
+                or item in matching
             )
         ]
 
@@ -651,9 +652,18 @@ def generate_recommendation(
         conversation_context
         and conversation_context.get("style_requested")
     )
+    requested_season = (
+        conversation_context.get("requested_season")
+        if conversation_context
+        else None
+    )
     formal_requested = bool(
         conversation_context
         and conversation_context.get("formal_requested")
+    )
+    business_requested = bool(
+        conversation_context
+        and conversation_context.get("business_requested")
     )
 
     favorite_colors = set(profile_data.get("favorite_colors") or [])
@@ -671,7 +681,9 @@ def generate_recommendation(
     context_data = {}
     if scene and scene.get("style"):
         context_data["style"] = scene["style"]
-    if weather and weather.get("season"):
+    if requested_season:
+        context_data["season"] = requested_season
+    elif weather and weather.get("season"):
         context_data["season"] = weather["season"]
 
     engine_profile_data = {**profile_data, **context_data}
@@ -737,6 +749,7 @@ def generate_recommendation(
         allowed_slots or None,
         style_requested,
         formal_requested,
+        business_requested,
     )
     scored = _filter_excluded_keywords(
         scored,
@@ -864,6 +877,18 @@ def generate_recommendation(
                 )
             else:
                 message = f"当前衣柜缺少{missing_color_message}衣物"
+        elif scene and scene.get("scene_type") in {
+            "露营",
+            "户外",
+            "户外旅行",
+            "登山",
+            "徒步",
+            "爬山",
+        }:
+            message = (
+                f"当前衣柜缺少符合{scene['scene_type']}"
+                "风格的功能型衣物"
+            )
         elif missing_required_message:
             if requested_style:
                 message = (

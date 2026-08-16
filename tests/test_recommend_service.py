@@ -223,6 +223,26 @@ def test_required_xiku_is_not_satisfied_by_jeans():
     assert required_slot_keywords == {"上衣": ["衬衫"]}
 
 
+def test_required_long_sleeve_maps_to_top():
+    scored = [
+        {
+            "name": "白色长袖衬衣",
+            "category": "上衣",
+            "score": 90,
+        }
+    ]
+
+    filtered, missing, forced_slots, required_slot_keywords = (
+        _apply_required_item_keywords(
+            scored,
+            ["长袖"],
+        )
+    )
+    assert missing == []
+    assert forced_slots == {"上衣"}
+    assert required_slot_keywords == {"上衣": ["长袖"]}
+
+
 def test_weather_adjustments_prefer_long_sleeve_in_rain():
     scored = [
         {

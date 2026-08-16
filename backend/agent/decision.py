@@ -36,28 +36,26 @@ def _extract_occasion(query: str, fallback: Optional[str]) -> Optional[str]:
 def _extract_style(query: str, fallback: Optional[str]) -> Optional[str]:
     """从自然语言里提取风格偏好。"""
     casual_markers = ("休闲", "舒服", "轻松", "不要太正式", "别太正式")
-    negative_casual_markers = (
-        "不要休闲",
-        "不想穿休闲",
-        "别休闲",
-        "不穿休闲",
-        "不要休闲风",
-        "不想穿休闲风",
-    )
-    if any(
-        marker in query
-        for marker in negative_casual_markers
-    ) and any(
-        marker in query
-        for marker in ("正式", "商务", "职场")
-    ):
-        return "商务"
-    if any(marker in query for marker in casual_markers):
+
+    def _style_is_negated(style: str) -> bool:
+        return any(
+            marker in query
+            for marker in (
+                f"不要{style}",
+                f"不想穿{style}",
+                f"别{style}",
+                f"不穿{style}",
+                f"不要{style}风",
+                f"不想穿{style}风",
+            )
+        )
+
+    if any(marker in query for marker in casual_markers) and not _style_is_negated("休闲"):
         return "休闲"
-    if "正式" in query:
+    if "正式" in query and not _style_is_negated("正式"):
         return "商务"
     for style in STYLES:
-        if style in query:
+        if style in query and not _style_is_negated(style):
             return style
     return fallback
 

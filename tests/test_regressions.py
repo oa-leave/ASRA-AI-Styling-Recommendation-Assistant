@@ -546,6 +546,15 @@ def test_casual_customer_request_respects_tshirt_and_excludes_shirt_suit():
             "occasion_tags": ["工作", "婚礼", "商务会议"],
         },
         {
+            "name": "蓝色衬衫",
+            "category": "上衣",
+            "color": "蓝色",
+            "season": "春季",
+            "style": "休闲",
+            "fit_tags": ["标准"],
+            "occasion_tags": ["日常"],
+        },
+        {
             "name": "蓝色西装",
             "category": "西装",
             "color": "蓝色",
@@ -2199,6 +2208,302 @@ def test_agent_sport_style_only_top_does_not_recommend_casual_shirt():
     )
 
 
+def test_agent_only_sport_style_top_recommends_sport_jacket():
+    username = _unique("sport_jacket")
+    headers = _register_and_login(username)
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "绿色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["绿色"],
+            "avoid_colors": [],
+        },
+    )
+    response = client.post(
+        "/wardrobe/add",
+        headers=headers,
+        json={
+            "name": "灰色衬衫",
+            "category": "上衣",
+            "color": "灰色",
+            "season": "春季",
+            "style": "休闲",
+            "fit_tags": ["标准"],
+            "occasion_tags": ["运动"],
+        },
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        "/wardrobe/add",
+        headers=headers,
+        json={
+            "name": "高领拉链运动夹克",
+            "category": "上衣",
+            "color": "绿色",
+            "season": "四季",
+            "style": "运动",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["日常"],
+        },
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={
+            "query": "只推荐运动风上衣",
+            "city": "沈阳",
+            "occasion": "日常",
+        },
+    )
+    assert response.status_code == 200
+    item_names = [
+        item["name"]
+        for item in response.json()["recommendation"]["items"]
+    ]
+    assert any("运动夹克" in name for name in item_names)
+    assert not any("灰色衬衫" in name for name in item_names)
+
+
+def test_agent_contradictory_sport_style_returns_conflict():
+    username = _unique("sport_style_conflict")
+    headers = _register_and_login(username)
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "绿色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["绿色"],
+            "avoid_colors": [],
+        },
+    )
+    response = client.post(
+        "/wardrobe/add",
+        headers=headers,
+        json={
+            "name": "高领拉链运动夹克",
+            "category": "上衣",
+            "color": "绿色",
+            "season": "四季",
+            "style": "运动",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["日常"],
+        },
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={
+            "query": "只推荐运动风上衣，不要运动风",
+            "city": "沈阳",
+            "occasion": "日常",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()["recommendation"]
+    assert data["items"] == []
+    assert any("冲突" in summary for summary in data["summary"])
+
+
+def test_agent_only_long_sleeve_shirt_does_not_use_short_sleeve():
+    username = _unique("long_sleeve_shirt")
+    headers = _register_and_login(username)
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "白色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["白色"],
+            "avoid_colors": [],
+        },
+    )
+    for item in [
+        {
+            "name": "灰色衬衫",
+            "category": "上衣",
+            "color": "灰色",
+            "season": "春季",
+            "style": "休闲",
+            "fit_tags": ["标准"],
+            "occasion_tags": ["日常"],
+        },
+        {
+            "name": "白色的长袖男士手工制作的纯棉衬衣",
+            "category": "上衣",
+            "color": "白色",
+            "season": "春季",
+            "style": "休闲",
+            "fit_tags": ["标准"],
+            "occasion_tags": ["工作", "婚礼", "商务会议"],
+        },
+    ]:
+        response = client.post("/wardrobe/add", headers=headers, json=item)
+        assert response.status_code == 201
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={
+            "query": "只推荐长袖衬衫",
+            "city": "沈阳",
+            "occasion": "日常",
+        },
+    )
+    assert response.status_code == 200
+    item_names = [
+        item["name"]
+        for item in response.json()["recommendation"]["items"]
+    ]
+    assert any("长袖" in name for name in item_names)
+    assert not any(name == "灰色衬衫" for name in item_names)
+    assert not any(name == "蓝色衬衫" for name in item_names)
+
+
+def test_agent_gray_top_no_long_sleeve_recommends_gray_shirt():
+    username = _unique("gray_no_long_sleeve")
+    headers = _register_and_login(username)
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "灰色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["灰色"],
+            "avoid_colors": [],
+        },
+    )
+    response = client.post(
+        "/wardrobe/add",
+        headers=headers,
+        json={
+            "name": "灰色衬衫",
+            "category": "上衣",
+            "color": "灰色",
+            "season": "春季",
+            "style": "休闲",
+            "fit_tags": ["标准"],
+            "occasion_tags": ["日常"],
+        },
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={
+            "query": "只推荐灰色上衣，不要长袖",
+            "city": "沈阳",
+            "occasion": "日常",
+        },
+    )
+    assert response.status_code == 200
+    item_names = [
+        item["name"]
+        for item in response.json()["recommendation"]["items"]
+    ]
+    assert any("灰色衬衫" in name for name in item_names)
+
+
+def test_agent_no_sport_style_recommends_casual_top():
+    username = _unique("no_sport_style")
+    headers = _register_and_login(username)
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "灰色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["灰色"],
+            "avoid_colors": [],
+        },
+    )
+    response = client.post(
+        "/wardrobe/add",
+        headers=headers,
+        json={
+            "name": "灰色衬衫",
+            "category": "上衣",
+            "color": "灰色",
+            "season": "春季",
+            "style": "休闲",
+            "fit_tags": ["标准"],
+            "occasion_tags": ["日常"],
+        },
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={
+            "query": "只推荐上衣，不要运动风",
+            "city": "沈阳",
+            "occasion": "日常",
+        },
+    )
+    assert response.status_code == 200
+    item_names = [
+        item["name"]
+        for item in response.json()["recommendation"]["items"]
+    ]
+    assert any("灰色衬衫" in name for name in item_names)
+    assert not any("冲突" in summary for summary in response.json()["recommendation"]["summary"])
+
+
+def test_chat_business_style_does_not_leak_to_next_request():
+    username = _unique("style_no_leak")
+    headers = _register_and_login(username)
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "蓝色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["蓝色"],
+            "avoid_colors": [],
+        },
+    )
+    first = client.post(
+        "/chat/",
+        headers=headers,
+        json={"message": "要商务风"},
+    )
+    assert first.status_code == 200
+    session_id = first.json()["session_id"]
+
+    second = client.post(
+        "/chat/",
+        headers=headers,
+        json={
+            "session_id": session_id,
+            "message": "今天日常穿，只推荐蓝色衣服",
+        },
+    )
+    assert second.status_code == 200
+    explanation = second.json()["reply"]["explanation"]
+    assert "本次要求：商务风格" not in explanation
+
+
 def test_agent_fitness_scene_only_top_does_not_recommend_casual_tshirt():
     username = _unique("fitness_only_top")
     headers = _register_and_login(username)
@@ -2345,6 +2650,14 @@ def test_agent_outdoor_only_top_does_not_recommend_casual_shirt():
     item_names = [item["name"] for item in data["items"]]
     assert item_names == []
     assert not any("衬衫" in name for name in item_names)
+    assert any(
+        "露营" in summary or "户外" in summary
+        for summary in data["summary"]
+    )
+    assert not any(
+        "缺少休闲风格衣物" in summary
+        for summary in data["summary"]
+    )
 
 
 def test_agent_contradictory_color_returns_conflict_message():
@@ -2581,6 +2894,70 @@ def test_agent_formal_style_does_not_accept_casual_shirt_with_formal_tags():
     assert not any("衬衣" in name or "衬衫" in name for name in item_names)
 
 
+def test_agent_client_formal_recommends_tagged_casual_shirt():
+    username = _unique("client_formal_tag_shirt")
+    headers = _register_and_login(username)
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "白色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["白色"],
+            "avoid_colors": [],
+        },
+    )
+    for item in [
+        {
+            "name": "白色的长袖男士手工制作的纯棉衬衣",
+            "category": "上衣",
+            "color": "白色",
+            "season": "春季",
+            "style": "休闲",
+            "fit_tags": ["标准"],
+            "occasion_tags": ["工作", "婚礼", "商务会议"],
+        },
+        {
+            "name": "蓝色裤子",
+            "category": "裤子",
+            "color": "蓝色",
+            "season": "春季",
+            "style": "修身",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["正式"],
+        },
+        {
+            "name": "蓝色西装",
+            "category": "西装",
+            "color": "蓝色",
+            "season": "春季",
+            "style": "商务",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["婚礼", "宴会", "商务"],
+        },
+    ]:
+        response = client.post("/wardrobe/add", headers=headers, json=item)
+        assert response.status_code == 201
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={
+            "query": "明天见客户，正式一点",
+            "city": "沈阳",
+            "occasion": "客户",
+        },
+    )
+    assert response.status_code == 200
+    item_names = [
+        item["name"]
+        for item in response.json()["recommendation"]["items"]
+    ]
+    assert any("长袖" in name for name in item_names)
+
+
 def test_agent_interview_query_keeps_interview_scene_label():
     username = _unique("interview_scene_label")
     headers = _register_and_login(username)
@@ -2717,9 +3094,9 @@ def test_agent_business_style_only_top_does_not_require_pants():
             "category": "上衣",
             "color": "灰色",
             "season": "夏季",
-            "style": "休闲",
+            "style": "商务",
             "fit_tags": ["标准"],
-            "occasion_tags": ["日常"],
+            "occasion_tags": ["商务"],
         },
         {
             "name": "蓝色牛仔裤",
@@ -2810,3 +3187,68 @@ def test_agent_business_style_only_shoes_does_not_fallback_to_sneakers():
     assert item_names == []
     assert not any("运动鞋" in name for name in item_names)
     assert any("缺少" in summary for summary in data["summary"])
+
+
+def test_agent_business_style_filters_casual_items():
+    username = _unique("business_hard")
+    headers = _register_and_login(username)
+    client.post(
+        "/profile/create",
+        headers=headers,
+        json={
+            "style": "休闲",
+            "favorite_color": "灰色",
+            "body_type": "标准",
+            "season": "夏季",
+            "favorite_colors": ["灰色"],
+            "avoid_colors": [],
+        },
+    )
+    for item in [
+        {
+            "name": "灰色衬衫",
+            "category": "上衣",
+            "color": "灰色",
+            "season": "夏季",
+            "style": "休闲",
+            "fit_tags": ["标准"],
+            "occasion_tags": ["日常"],
+        },
+        {
+            "name": "灰色裤子",
+            "category": "裤子",
+            "color": "灰色",
+            "season": "夏季",
+            "style": "休闲",
+            "fit_tags": ["直筒"],
+            "occasion_tags": ["日常"],
+        },
+        {
+            "name": "蓝色西装",
+            "category": "西装",
+            "color": "蓝色",
+            "season": "春季",
+            "style": "商务",
+            "fit_tags": ["修身"],
+            "occasion_tags": ["商务"],
+        },
+    ]:
+        response = client.post("/wardrobe/add", headers=headers, json=item)
+        assert response.status_code == 201
+
+    response = client.post(
+        "/agent/recommend",
+        headers=headers,
+        json={
+            "query": "要商务风",
+            "city": "沈阳",
+            "occasion": "日常",
+        },
+    )
+    assert response.status_code == 200
+    item_names = [
+        item["name"]
+        for item in response.json()["recommendation"]["items"]
+    ]
+    assert not any("灰色衬衫" in name for name in item_names)
+    assert not any("灰色裤子" in name for name in item_names)

@@ -17,6 +17,10 @@ from backend.services.recommendation_engine import normalize_colors
 MODEL_CATEGORY_ALIASES = {
     "上衣": "上衣",
     "top": "上衣",
+    "运动上衣": "上衣",
+    "运动外套": "外套",
+    "运动裤": "裤子",
+    "运动鞋": "鞋子",
     "shirt": "上衣",
     "tee": "上衣",
     "sweater": "上衣",
@@ -88,6 +92,16 @@ MODEL_STYLE_ALIASES = {
     "japanese": "日系",
     "极简": "极简",
     "minimal": "极简",
+    "简约": "简约",
+    "simple": "简约",
+    "复古": "复古",
+    "vintage": "复古",
+    "retro": "复古",
+    "学院": "学院",
+    "academic": "学院",
+    "preppy": "学院",
+    "新中式": "新中式",
+    "new chinese": "新中式",
     "中式": "中式",
     "chinese": "中式",
 }
@@ -96,6 +110,7 @@ MODEL_FIT_ALIASES = {
     "基础款": "基础款",
     "regular": "基础款",
     "standard": "基础款",
+    "常规": "基础款",
     "修身": "修身",
     "slim": "修身",
     "slim fit": "修身",
@@ -122,6 +137,10 @@ MODEL_OCCASION_ALIASES = {
     "运动": "运动",
     "sport": "运动",
     "workout": "运动",
+    "瑜伽": "瑜伽",
+    "yoga": "瑜伽",
+    "健身": "健身",
+    "gym": "健身",
     "旅行": "旅行",
     "travel": "旅行",
     "正式": "正式",
@@ -284,12 +303,20 @@ def _infer_style(name: str) -> str:
         return "商务"
     if any(word in text for word in ("运动", "sport", "sneaker")):
         return "运动"
+    if any(word in text for word in ("新中式", "new chinese")):
+        return "新中式"
     if any(word in text for word in ("旗袍", "汉服", "中式")):
         return "中式"
     if any(word in text for word in ("日系", "japanese")):
         return "日系"
     if any(word in text for word in ("极简", "minimal")):
         return "极简"
+    if any(word in text for word in ("简约", "simple", "clean")):
+        return "简约"
+    if any(word in text for word in ("复古", "vintage", "retro")):
+        return "复古"
+    if any(word in text for word in ("学院", "academic", "preppy")):
+        return "学院"
     return "休闲"
 
 
@@ -397,6 +424,50 @@ def _structured_fallback_name(style, color, category):
     return f"{style or '休闲'}{color or '未知'}{category or '上衣'}"
 
 
+CLOTHING_NAME_MARKERS = (
+    "衣",
+    "服",
+    "外套",
+    "衬衫",
+    "衬衣",
+    "T恤",
+    "t恤",
+    "卫衣",
+    "开衫",
+    "裤",
+    "裙",
+    "鞋",
+    "帽",
+    "包",
+    "背心",
+    "西装",
+    "风衣",
+    "夹克",
+    "jeans",
+    "sneaker",
+    "sneakers",
+    "hoodie",
+    "sweater",
+    "cardigan",
+    "blazer",
+    "trousers",
+    "tee",
+    "jacket",
+    "coat",
+    "shirt",
+    "top",
+    "pants",
+    "dress",
+    "skirt",
+    "shoes",
+)
+
+
+def _looks_like_clothing_name(name: str) -> bool:
+    text = str(name or "").lower()
+    return any(marker in text for marker in CLOTHING_NAME_MARKERS)
+
+
 def _infer_season(name: str) -> str:
     text = name.lower()
     if any(word in text for word in ("短袖", "t恤", "tee", "短裤", "凉鞋", "背心", "tank")):
@@ -442,10 +513,20 @@ def _normalize_model_result(
 
     season = _match_alias(data.get("season"), MODEL_SEASON_ALIASES) or "四季"
 
+    style_tags = _translate_tags(
+        _as_list(data.get("style_tags")),
+        MODEL_STYLE_ALIASES,
+    )
+    style_tags = [tag for tag in style_tags if tag in STYLES]
+    if style_tags and (not style or style == "休闲"):
+        style = style_tags[0]
+    if not style_tags:
+        style_tags = [style]
+
     raw_name = _clean_name(data.get("name"))
     if hint_name:
         raw_name = hint_name
-    if raw_name == "识别衣物":
+    if raw_name == "识别衣物" or not _looks_like_clothing_name(raw_name):
         raw_name = _structured_fallback_name(style, color, category)
     name = _translate_clothing_name(raw_name, color, category)
     color_tags = normalize_colors(_as_list(data.get("color_tags")))
@@ -454,10 +535,6 @@ def _normalize_model_result(
     if color not in color_tags:
         color_tags = [color, *color_tags]
 
-    style_tags = _translate_tags(
-        _as_list(data.get("style_tags")),
-        MODEL_STYLE_ALIASES,
-    ) or [style]
     fit_tags = _translate_tags(
         _as_list(data.get("fit_tags")),
         MODEL_FIT_ALIASES,
