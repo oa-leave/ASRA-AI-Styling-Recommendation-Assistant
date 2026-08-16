@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: asra
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: "sqlite:////tmp/asra.db"
+      - key: VISION_ENABLED
+        value: "false"
+      - key: USE_WEATHER_API
+        value: "true"

@@ -230,6 +230,25 @@ GET /evaluation/metrics
 | 无推荐原因已验证样本 | 100% |
 
 
+## 部署（Render）
+
+ASRA 已提供 `Dockerfile` 和 `render.yaml`，可部署到 Render Free。
+
+1. 确保代码已推送到 GitHub。
+2. 在 Render 新建 Blueprint，选择 ASRA 仓库。
+3. Render 读取 `render.yaml` 后自动创建 Web Service。
+4. 首次启动后访问 `https://<服务名>.onrender.com/docs`。
+
+推荐环境变量：
+
+```text
+VISION_ENABLED=false
+DATABASE_URL=sqlite:////tmp/asra.db
+SECRET_KEY=<由 Render 自动生成>
+```
+
+注意：免费实例使用 SQLite 时，数据会在实例重建后重置；需要持久化数据时改用 Render PostgreSQL。
+
 ## Demo
 
 > 待补充：`docs/demo.gif` 或在线演示地址。
